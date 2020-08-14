@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<MyApp>
+    <!-- Settings for MyApp -->
+    <Windows>
+        <Window name="MainFrame" w="800" h="600" />
+    </Windows>
+</MyApp>
