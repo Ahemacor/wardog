@@ -98,7 +98,8 @@
       <AdditionalDependencies>tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s-d.lib;ws2_32.lib;sfml-network-s-d.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s-d.lib;opengl32.lib;gdi32.lib;sfml-window-s-d.lib;freetype.lib;sfml-graphics-s-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y</Command>
+      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y
+XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Debug\textures" /S /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -121,7 +122,8 @@
       <AdditionalDependencies>tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s.lib;ws2_32.lib;sfml-network-s.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s.lib;opengl32.lib;gdi32.lib;sfml-window-s.lib;freetype.lib;sfml-graphics-s.lib;sfml-main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y</Command>
+      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y
+XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Release\textures" /S /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -140,7 +142,8 @@
       <AdditionalDependencies>tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s-d.lib;ws2_32.lib;sfml-network-s-d.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s-d.lib;opengl32.lib;gdi32.lib;sfml-window-s-d.lib;freetype.lib;sfml-graphics-s-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y</Command>
+      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y
+XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Debug\textures" /S /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -163,7 +166,8 @@
       <AdditionalDependencies>tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s.lib;ws2_32.lib;sfml-network-s.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s.lib;opengl32.lib;gdi32.lib;sfml-window-s.lib;freetype.lib;sfml-graphics-s.lib;sfml-main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y</Command>
+      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y
+XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Release\textures" /S /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
