@@ -1,11 +1,11 @@
 <?xml version="1.0" ?>
 <Settings>
     <GameWindow>
-        <Window name="Test Simple Animation" w="800" h="600" />
+        <Window name="Test Simple Animation" w="1280" h="720" />
     </GameWindow>
 	<Animation>
-        <Common x_offset="4" y_offset="27" width="64" height= "64" scale="5" />
-		<Idle row="1" num_frames="2" frame_time_ms="400" />
-		<Walk row="3" num_frames="8" frame_time_ms="100" />
+        <Common x_offset="0" y_offset="0" width="32" height= "32" scale="4" />
+		<Idle row="1" num_frames="6" frame_time_ms="300" />
+		<Walk row="5" num_frames="18" frame_time_ms="35" />
     </Animation>
 </Settings>
