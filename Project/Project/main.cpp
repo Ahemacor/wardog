@@ -202,22 +202,6 @@ private:
     sf::Time time;
 };
 
-using Component = std::variant<sf::Shape*, KeyBindings*, Animation*, b2Body*, sf::Sprite>;
-
-struct Entity
-{
-    enum class ComponentType
-    {
-        BINDINGS,
-        BODY,
-        SHAPE,
-        BACKGROUND,
-        ANIMATION
-    };
-
-    std::map<ComponentType, Component> components;
-};
-
 class AudioSystem
 {
 public:
@@ -250,17 +234,74 @@ private:
     std::array<sf::Sound, 10> players;
 };
 
+struct Scene;
+
+struct Entity
+{
+    enum class ComponentType
+    {
+        BINDINGS,
+        BODY,
+        SHAPE,
+        ANIMATION,
+
+        COUNT
+    };
+
+    Entity(Scene& scene) : parentScene(scene) 
+    {
+        for (auto& component : components) component = -1;
+    }
+
+    std::array <int, static_cast<std::size_t>(ComponentType::COUNT)> components;
+    Scene& parentScene;
+    bool cameraFocus = false;
+};
+
+struct Scene
+{
+    Scene() : world(b2Vec2(0.0f, 9.8f)) 
+    {
+        music.openFromFile("audio\\ambient\\ambient.wav");
+        background.loadFromFile("textures\\background.png");
+    }
+
+    std::size_t AddEntity(Entity&& entity)
+    {
+        const std::size_t entityId = entities.size();
+        entities.push_back(std::move(entity));
+        return entityId;
+    }
+
+    std::size_t CreateEntity()
+    {
+        const std::size_t entityId = entities.size();
+        entities.push_back(Entity(*this));
+        return entityId;
+    }
+
+    Entity& GetEntityRef(std::size_t entityId)
+    {
+        return entities[entityId];
+    }
+
+    std::vector<Entity> entities;
+    std::vector<b2Body*> bodies;
+    std::vector<sf::RectangleShape> shapes;
+    std::vector<KeyBindings> bindings;
+    std::vector<Animation> animations;
+    std::vector<sf::Texture> textures;
+
+    sf::Texture background;
+    sf::Music music;
+    b2World world;
+};
+
 class Game
 {
 public:
-    struct Scene
-    {
-        std::vector<Entity> entities;
-    };
-
     Game(const Config::Window& windowSettings)
-    : world(b2Vec2(0.0f, 9.8f))
-    , window(sf::VideoMode(windowSettings.w, windowSettings.h), windowSettings.name)
+    : window(sf::VideoMode(windowSettings.w, windowSettings.h), windowSettings.name)
     {}
 
     void processMessages()
@@ -300,7 +341,7 @@ public:
     {
         const int32 velocityIterations = 6;
         const int32 positionIterations = 2;
-        world.Step(elapsedTime.asSeconds(), velocityIterations, positionIterations);
+        scene.world.Step(elapsedTime.asSeconds(), velocityIterations, positionIterations);
 
         toDrawList.clear();
         toExecList.clear();
@@ -308,97 +349,85 @@ public:
 
         for (auto& entity : scene.entities)
         {
-            bool controlEntity = false;
+            const int bindingIndex = entity.components[static_cast<int>(Entity::ComponentType::BINDINGS)];
+            const int bodyIndex = entity.components[static_cast<int>(Entity::ComponentType::BODY)];
+            const int shapeIndex = entity.components[static_cast<int>(Entity::ComponentType::SHAPE)];
+            const int animationIndex = entity.components[static_cast<int>(Entity::ComponentType::ANIMATION)];
+
             std::optional<sf::Vector2f> bodyPosition;
             std::optional<float> bodyAngle;
             std::optional<b2Vec2> bodyLinearVelocity;
-            for (auto& [type, component] : entity.components)
+
+            if (bodyIndex >= 0)
             {
-                switch (type)
+                b2Body* pBody = scene.bodies[bodyIndex];
+                if (entity.cameraFocus)
                 {
-                case Entity::ComponentType::BINDINGS:
-                {
-                    controlEntity = true;
-                    auto& binds = std::get<KeyBindings*>(component);
-                    for (const auto& keyCode : releasedKeys)
-                    {
-                        auto findBind = binds->find(keyCode);
-                        if (findBind != binds->cend())
-                        {
-                            auto& [bindKey, bindAction] = *findBind;
-                            Task task = [findBind]() {findBind->second(false); };
-                            toExecList.push_back(task);
-                        }
-                    }
+                    cameraTranslation = { (float)meterToPixel(pBody->GetPosition().x) - window.getSize().x / 2,
+                                          (float)meterToPixel(pBody->GetPosition().y) - (window.getSize().y - 200) };
+                }
+                bodyPosition = { (float)meterToPixel(pBody->GetPosition().x), (float)meterToPixel(pBody->GetPosition().y) };
+                bodyPosition = bodyPosition.value() - cameraTranslation;
+                bodyAngle = radianToDegree(pBody->GetAngle());
+                bodyLinearVelocity = pBody->GetLinearVelocity();
+            }
 
-                    for (const auto& keyCode : pressedKeys)
+            if(bindingIndex >= 0)
+            {
+                auto& binds = scene.bindings[bindingIndex];
+                for (const auto& keyCode : releasedKeys)
+                {
+                    auto findBind = binds.find(keyCode);
+                    if (findBind != binds.cend())
                     {
-                        auto findBind = binds->find(keyCode);
-                        if (findBind != binds->cend())
-                        {
-                            auto& [bindKey, bindAction] = *findBind;
-                            Task task = [findBind]() {findBind->second(true); };
-                            toExecList.push_back(task);
-                        }
+                        auto& [bindKey, bindAction] = *findBind;
+                        Task task = [findBind]() {findBind->second(false); };
+                        toExecList.push_back(task);
                     }
                 }
-                    break;
 
-                case Entity::ComponentType::BACKGROUND:
+                for (const auto& keyCode : pressedKeys)
                 {
-                    sf::Sprite sprite = std::get<sf::Sprite>(component);
-                    sprites.insert(sprites.cbegin(), sprite);
-                }
-                break;
-
-                case Entity::ComponentType::SHAPE:
-                {
-                    sf::Shape* shape = std::get<sf::Shape*>(component);
-                    if (bodyPosition.has_value())shape->setPosition(bodyPosition.value().x, bodyPosition.value().y);
-                    if (bodyAngle.has_value())shape->setRotation(bodyAngle.value());
-                    toDrawList.push_back(shape);
-                }
-                    break;
-
-                case Entity::ComponentType::ANIMATION:
-                {
-                    Animation* animation = std::get<Animation*>(component);
-
-                    if (bodyLinearVelocity.has_value())
+                    auto findBind = binds.find(keyCode);
+                    if (findBind != binds.cend())
                     {
-                        const float bias = 0.01f;
-                        auto type = Animation::Type::WALK;
-                        if (bodyLinearVelocity.value().x <= -bias) animation->setDirection(Animation::Direction::LEFT);
-                        else if (bodyLinearVelocity.value().x >= bias) animation->setDirection(Animation::Direction::RIGHT);
-                        else type = Animation::Type::IDLE;
-                        animation->setType(type);
-                        if (type == Animation::Type::WALK)
-                        {
-                            audioSystem.playSound(AudioSystem::SoundType::STEP);
-                        }
+                        auto& [bindKey, bindAction] = *findBind;
+                        Task task = [findBind]() {findBind->second(true); };
+                        toExecList.push_back(task);
                     }
-                    sf::Sprite sprite = animation->getSprite(elapsedTime);
-                    if (bodyPosition.has_value())sprite.setPosition(bodyPosition.value().x, bodyPosition.value().y);
-                    if (bodyAngle.has_value())sprite.setRotation(bodyAngle.value());
-                    sprites.push_back(sprite);
                 }
-                    break;
+            }
 
-                case Entity::ComponentType::BODY:
+            if(shapeIndex >= 0)
+            {
+                sf::Shape* shape = &scene.shapes[shapeIndex];
+                if (bodyPosition.has_value())shape->setPosition(bodyPosition.value().x, bodyPosition.value().y);
+                if (bodyAngle.has_value())shape->setRotation(bodyAngle.value());
+                toDrawList.push_back(shape);
+            }
+
+            if(animationIndex >= 0)
+            {
+
+                Animation& animation = scene.animations[animationIndex];
+
+                if (bodyLinearVelocity.has_value())
                 {
-                    b2Body* pBody = std::get<b2Body*>(component);
-                    if (controlEntity) cameraTranslation = { (float)meterToPixel(pBody->GetPosition().x) - window.getSize().x / 2,
-                                                             (float)meterToPixel(pBody->GetPosition().y) - (window.getSize().y - 200)};
-                    bodyPosition = { (float)meterToPixel(pBody->GetPosition().x), (float)meterToPixel(pBody->GetPosition().y) };
-                    bodyPosition = bodyPosition.value() - cameraTranslation;
-                    bodyAngle = radianToDegree(pBody->GetAngle());
-                    bodyLinearVelocity = pBody->GetLinearVelocity();
+                    const float bias = 0.01f;
+                    auto type = Animation::Type::WALK;
+                    if (bodyLinearVelocity.value().x <= -bias) animation.setDirection(Animation::Direction::LEFT);
+                    else if (bodyLinearVelocity.value().x >= bias) animation.setDirection(Animation::Direction::RIGHT);
+                    else type = Animation::Type::IDLE;
+                    animation.setType(type);
+                    if (type == Animation::Type::WALK)
+                    {
+                        audioSystem.playSound(AudioSystem::SoundType::STEP);
+                    }
                 }
-                    break;
-
-                default:
-                    break;
-                }
+                sf::Sprite sprite = animation.getSprite(elapsedTime);
+                if (bodyPosition.has_value())sprite.setPosition(bodyPosition.value().x, bodyPosition.value().y);
+                if (bodyAngle.has_value())sprite.setRotation(bodyAngle.value());
+                sprites.push_back(sprite);
             }
         }
 
@@ -413,13 +442,22 @@ public:
     void renderFrame()
     {
         window.clear(sf::Color::White);
+        sf::Sprite backgroundSprite(scene.background);
+        window.draw(backgroundSprite);
+
         for (auto& sprite : sprites) window.draw(sprite);
+
         for (auto* shape : toDrawList) window.draw(*shape);
+
         window.display();
     }
 
     void blockingRun()
     {
+        scene.music.setLoop(true);
+        scene.music.setVolume(10.0f);
+        scene.music.play();
+
         sf::Time elapsedTime = clock.restart();
 
         while (window.isOpen())
@@ -431,18 +469,12 @@ public:
         }
     }
 
-    std::size_t AddEntity(Entity&& entity)
-    {
-        scene.entities.push_back(std::move(entity));
-        return scene.entities.size();
-    }
-
-    b2World world;
+    Scene scene;
 
 private:
     sf::RenderWindow window;
     AudioSystem audioSystem;
-    Scene scene;
+    
     sf::Clock clock;
     KeySet pressedKeys;
     KeySet releasedKeys;
@@ -466,7 +498,7 @@ int main()
     b2BodyDef bodyDef;
     bodyDef.type = b2_dynamicBody;
     bodyDef.position.Set(player_x, player_y);
-    b2Body* body = game.world.CreateBody(&bodyDef);
+    b2Body* body = game.scene.world.CreateBody(&bodyDef);
 
     b2PolygonShape dynamicBox;
     dynamicBox.SetAsBox(player_w/2, player_h/2);
@@ -527,15 +559,21 @@ int main()
     playerRect.setOrigin(playerRect.getSize().x / 2, playerRect.getSize().y / 2);
 
     {
-        Entity playerEntity;
-        playerEntity.components[Entity::ComponentType::BINDINGS] = &playerControls;
-        playerEntity.components[Entity::ComponentType::ANIMATION] = &playerAnimation;
-        //playerEntity.components[Entity::ComponentType::SHAPE] = &playerRect;
-        playerEntity.components[Entity::ComponentType::BODY] = body;
+        const std::size_t newEntityId = game.scene.CreateEntity();
+        Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        game.AddEntity(std::move(playerEntity));
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::BINDINGS)] = game.scene.bindings.size();
+        game.scene.bindings.push_back(playerControls);
+
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = game.scene.animations.size();
+        game.scene.animations.push_back(playerAnimation);
+
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
+        game.scene.bodies.push_back(body);
+
+        entity.cameraFocus = true;
     }
-
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const float groundWidth = 10;
     const float groundHeight = 0.1;
     const float groundX = 5; //windowSettings.w / 2.0f;
@@ -548,7 +586,7 @@ int main()
 
     b2BodyDef groundBodyDef;
     groundBodyDef.position.Set(groundX, groundY);
-    b2Body* groundBody = game.world.CreateBody(&groundBodyDef);
+    b2Body* groundBody = game.scene.world.CreateBody(&groundBodyDef);
 
     b2PolygonShape groundBox;
     groundBox.SetAsBox(groundWidth/2, groundHeight/2);
@@ -560,13 +598,17 @@ int main()
     groundBody->CreateFixture(&groundfixtureDef);
 
     {
-        Entity groundEntity;
-        groundEntity.components[Entity::ComponentType::SHAPE] = &groundRect;
-        groundEntity.components[Entity::ComponentType::BODY] = groundBody;
+        const std::size_t newEntityId = game.scene.CreateEntity();
+        Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        game.AddEntity(std::move(groundEntity));
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
+        game.scene.shapes.push_back(std::move(groundRect));
+
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
+        game.scene.bodies.push_back(groundBody);
     }
-
+    
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const float rightWallWidth = 0.1;
     const float rightWallHeight = 10;
     const float rightWallX = 10;
@@ -579,7 +621,7 @@ int main()
 
     b2BodyDef rightWallBodyDef;
     rightWallBodyDef.position.Set(rightWallX, rightWallY);
-    b2Body* rightWallBody = game.world.CreateBody(&rightWallBodyDef);
+    b2Body* rightWallBody = game.scene.world.CreateBody(&rightWallBodyDef);
 
     b2PolygonShape rightWallBox;
     rightWallBox.SetAsBox(rightWallWidth / 2, rightWallHeight / 2);
@@ -591,13 +633,16 @@ int main()
     rightWallBody->CreateFixture(&rightWallfixtureDef);
 
     {
-        Entity rightWallEntity;
-        rightWallEntity.components[Entity::ComponentType::SHAPE] = &rightWallRect;
-        rightWallEntity.components[Entity::ComponentType::BODY] = rightWallBody;
+        const std::size_t newEntityId = game.scene.CreateEntity();
+        Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        game.AddEntity(std::move(rightWallEntity));
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
+        game.scene.shapes.push_back(std::move(rightWallRect));
+
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
+        game.scene.bodies.push_back(rightWallBody);
     }
-
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const float leftWallWidth = 0.1;
     const float leftWallHeight = 10;
     const float leftWallX = 0;
@@ -610,7 +655,7 @@ int main()
 
     b2BodyDef leftWallBodyDef;
     leftWallBodyDef.position.Set(leftWallX, leftWallY);
-    b2Body* leftWallBody = game.world.CreateBody(&leftWallBodyDef);
+    b2Body* leftWallBody = game.scene.world.CreateBody(&leftWallBodyDef);
 
     b2PolygonShape leftWallBox;
     leftWallBox.SetAsBox(leftWallWidth / 2, leftWallHeight / 2);
@@ -622,13 +667,16 @@ int main()
     leftWallBody->CreateFixture(&leftWallfixtureDef);
 
     {
-        Entity leftWallEntity;
-        leftWallEntity.components[Entity::ComponentType::SHAPE] = &leftWallRect;
-        leftWallEntity.components[Entity::ComponentType::BODY] = leftWallBody;
+        const std::size_t newEntityId = game.scene.CreateEntity();
+        Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        game.AddEntity(std::move(leftWallEntity));
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
+        game.scene.shapes.push_back(std::move(leftWallRect));
+
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
+        game.scene.bodies.push_back(leftWallBody);
     }
-
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const float box_w = 1;
     const float box_h = 0.5;
     const float box_x = 3;
@@ -637,11 +685,10 @@ int main()
     b2BodyDef boxBodyDef;
     boxBodyDef.type = b2_dynamicBody;
     boxBodyDef.position.Set(box_x, box_y);
-    b2Body* boxBody = game.world.CreateBody(&boxBodyDef);
+    b2Body* boxBody = game.scene.world.CreateBody(&boxBodyDef);
 
     b2PolygonShape boxDynamicBox;
     boxDynamicBox.SetAsBox(box_w / 2, box_h / 2);
-
 
     b2FixtureDef boxFixtureDef;
     boxFixtureDef.shape = &boxDynamicBox;
@@ -657,31 +704,16 @@ int main()
     boxRect.setOrigin(boxRect.getSize().x / 2, boxRect.getSize().y / 2);
 
     {
-        Entity boxEntity;
-        boxEntity.components[Entity::ComponentType::SHAPE] = &boxRect;
-        boxEntity.components[Entity::ComponentType::BODY] = boxBody;
+        const std::size_t newEntityId = game.scene.CreateEntity();
+        Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        game.AddEntity(std::move(boxEntity));
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
+        game.scene.shapes.push_back(std::move(boxRect));
+
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
+        game.scene.bodies.push_back(boxBody);
     }
-
-    sf::Texture backgroundTexture;
-    backgroundTexture.loadFromFile("textures\\background.png");
-    sf::Sprite backgroundSprite;
-    backgroundSprite.setTexture(backgroundTexture);
-
-    {
-        Entity backgroundEntity;
-        backgroundEntity.components[Entity::ComponentType::BACKGROUND] = backgroundSprite;
-
-        game.AddEntity(std::move(backgroundEntity));
-    }
-
-    sf::Music music;
-    if (!music.openFromFile("audio\\ambient\\ambient.wav")) return -1;
-
-    music.setLoop(true);
-    music.setVolume(10.0f);
-    music.play();
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     game.blockingRun();
 
