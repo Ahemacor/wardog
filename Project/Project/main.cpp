@@ -22,9 +22,55 @@ inline constexpr int meterToPixel(float meters) { return static_cast<int>(meters
 inline constexpr float degreeToRadian(float degrees) { return degrees / 180 * M_PI; }
 inline constexpr float radianToDegree(float radians) { return radians * 180 * M_PI; }
 
+enum class AnimationType
+{
+    IDLE,
+    WALK
+};
+
+static constexpr const char* AnimationNames[] =
+{
+    "Idle",
+    "Walk"
+};
+
+enum class DirectionType
+{
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+};
+
+static constexpr const char* DirectionNames[] =
+{
+    "Up",
+    "Down",
+    "Left",
+    "Right"
+};
+
+const std::string TEXTURE_DIR = "textures";
+const std::string TEXTURE_EXT = ".png";
+
 class Config
 {
 public:
+    static constexpr const char* XML_TAG_SPRITE_SHEET = "Spritesheet";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_TEXTURE = "texture";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_X_OFFSET = "x_offset";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_Y_OFFSET = "y_offset";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_WIDTH = "width";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_HEIGHT = "height";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_SCALE = "scale";
+
+    static constexpr const char* XML_TAG_SPRITE_SHEET_ANIMATION = "Animation";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_ANIMATION_NAME = "name";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_ANIMATION_FRAMES = "num_frames";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_ANIMATION_TIME = "frame_time_ms";
+
+    static constexpr const char* XML_TAG_SPRITE_SHEET_ANIMATION_ROW_INDEX = "row_index";
+
     struct Window
     {
         int w = 400;
@@ -32,24 +78,26 @@ public:
         std::string name = "Untitled";
     };
 
-    struct Animation
+    struct Spritesheet
     {
-        int x_offset = 4;
-        int y_offset = 27; 
-        int width = 64;
-        int height = 64;
-        int scale = 5;
+        std::string texture; 
+        int x_offset = 0;
+        int y_offset = 0;
+        int width = 0;
+        int height = 0;
+        int scale = 0;
 
-        struct AnimationLine
+        struct Animation
         {
-            int row_id = 0;
+            std::string name;
             int num_frames = 0;
             int ms_per_frame = 0;
+            std::map<std::string, int> row_index;
         };
 
-        AnimationLine idle;
-        AnimationLine walk;
+        std::map<std::string, Animation> animations;
     };
+
 
     Config(const std::string& filepath)
     : doc(filepath.c_str())
@@ -72,29 +120,41 @@ public:
         return windowSettings;
     }
 
-    Animation getAnimationSettings()
+    std::vector<Spritesheet> getAnimationSettings()
     {
-        Animation animationSettings;
-        TiXmlHandle animationNode = hRoot.FirstChild("Animation");
+        std::vector<Spritesheet> spriteSheets;
 
-        TiXmlElement* common = animationNode.FirstChild("Common").Element();
-        common->QueryIntAttribute("x_offset", &animationSettings.x_offset);
-        common->QueryIntAttribute("y_offset", &animationSettings.y_offset);
-        common->QueryIntAttribute("width", &animationSettings.width);
-        common->QueryIntAttribute("height", &animationSettings.height);
-        common->QueryIntAttribute("scale", &animationSettings.scale);
+        TiXmlElement* spriteSheetElem = hRoot.FirstChild(Config::XML_TAG_SPRITE_SHEET).Element();
+        for (spriteSheetElem; spriteSheetElem != nullptr; spriteSheetElem = spriteSheetElem->NextSiblingElement())
+        {
+            Config::Spritesheet spriteSheetInfo;
+            spriteSheetInfo.texture = spriteSheetElem->Attribute(Config::XML_TAG_SPRITE_SHEET_TEXTURE);
+            spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_X_OFFSET, &spriteSheetInfo.x_offset);
+            spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_Y_OFFSET, &spriteSheetInfo.y_offset);
+            spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_WIDTH, &spriteSheetInfo.width);
+            spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_HEIGHT, &spriteSheetInfo.height);
+            spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_SCALE, &spriteSheetInfo.scale);
 
-        TiXmlElement* idle = animationNode.FirstChild("Idle").Element();
-        idle->QueryIntAttribute("row", &animationSettings.idle.row_id);
-        idle->QueryIntAttribute("num_frames", &animationSettings.idle.num_frames);
-        idle->QueryIntAttribute("frame_time_ms", &animationSettings.idle.ms_per_frame);
+            TiXmlElement* animationElem = spriteSheetElem->FirstChild(Config::XML_TAG_SPRITE_SHEET_ANIMATION)->ToElement();
+            for (animationElem; animationElem != nullptr; animationElem = animationElem->NextSiblingElement())
+            {
+                Config::Spritesheet::Animation animationInfo;
+                animationInfo.name = animationElem->Attribute(Config::XML_TAG_SPRITE_SHEET_ANIMATION_NAME);
+                animationElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_ANIMATION_FRAMES, &animationInfo.num_frames);
+                animationElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_ANIMATION_TIME, &animationInfo.ms_per_frame);
+                for (TiXmlElement* animationChildElem = animationElem->FirstChildElement() ; animationChildElem != nullptr; animationChildElem = animationChildElem->NextSiblingElement())
+                {
+                    const char* directionName = animationChildElem->Value();
+                    const int row_index = animationChildElem->FirstAttribute()->IntValue();
+                    animationInfo.row_index[directionName] = row_index;
+                }
+                spriteSheetInfo.animations[animationInfo.name] = animationInfo;
+            }
 
-        TiXmlElement* walk = animationNode.FirstChild("Walk").Element();
-        walk->QueryIntAttribute("row", &animationSettings.walk.row_id);
-        walk->QueryIntAttribute("num_frames", &animationSettings.walk.num_frames);
-        walk->QueryIntAttribute("frame_time_ms", &animationSettings.walk.ms_per_frame);
+            spriteSheets.push_back(std::move(spriteSheetInfo));
+        }
 
-        return animationSettings;
+        return spriteSheets;
     }
 
 private:
@@ -112,59 +172,39 @@ using KeyBindings = std::map<sf::Keyboard::Key, Action>;
 class Animation
 {
 public:
-    enum class Type
-    {
-        IDLE,
-        WALK
-    };
-
-    enum class Direction
-    {
-        LEFT,
-        RIGHT
-    };
-
-    Animation(const Config::Animation& animationSettings)
+    Animation(const Config::Spritesheet& animationSettings)
     {
         settings = animationSettings;
-        texture.loadFromFile("textures\\spritelist.png");
+        std::string texturePath;
+        texturePath += TEXTURE_DIR;
+        texturePath += "\\";
+        texturePath += settings.texture;
+        texturePath += TEXTURE_EXT;
+
+        texture.loadFromFile(texturePath);
         sprite.setTexture(texture);
         sprite.setOrigin(settings.width / 2.0f, settings.height / 2.0f);
         sprite.setScale((float)settings.scale, (float)settings.scale);
     }
 
-    sf::Sprite getSprite(Type type, Direction direction, sf::Time elapsedTime)
+    sf::Sprite getSprite(AnimationType type, DirectionType direction, sf::Time elapsedTime)
     {
-        const int baseIdleRowId = settings.idle.row_id - 1;
-        const int baseWalkRowId = settings.walk.row_id - 1;
-        const int backwardDirectionOffset = 1;
+        const char* directionName = DirectionNames[static_cast<int>(direction)];
+        const char* animationName = AnimationNames[static_cast<int>(type)];
 
         int row_id = 0;
         int column_id = 0;
 
-        switch (type)
-        {
-        case Animation::Type::IDLE:
-            if (direction == Direction::RIGHT) row_id = baseIdleRowId;
-            else row_id = baseIdleRowId + backwardDirectionOffset;
-            column_id = getColumnId(settings.idle.ms_per_frame, settings.idle.num_frames, elapsedTime);
-            break;
-
-        case Animation::Type::WALK:
-            if (direction == Direction::RIGHT) row_id = baseWalkRowId;
-            else row_id = baseWalkRowId + backwardDirectionOffset;
-            column_id = getColumnId(settings.walk.ms_per_frame, settings.walk.num_frames, elapsedTime);
-            break;
-
-        default:
-            break;
-        }
+        auto& animationInfo = settings.animations[animationName];
+        row_id = animationInfo.row_index[directionName];
+        column_id = getColumnId(animationInfo.ms_per_frame, animationInfo.num_frames, elapsedTime);
 
         sf::IntRect newTectureRect(settings.x_offset + (column_id * settings.width), 
                                    settings.y_offset + (row_id * settings.height), 
                                    settings.width, settings.height);
 
         sprite.setTextureRect(newTectureRect);
+
         return sprite;
     }
 
@@ -178,9 +218,11 @@ public:
         sprite.setPosition(xpos, ypos);
     }
 
-    void setType(Type type) { this->type = type; }
+    void setType(AnimationType type) { this->type = type; }
+    AnimationType getType() { return type; }
 
-    void setDirection(Direction direction) { this->direction = direction; }
+    void setDirection(DirectionType direction) { this->direction = direction; }
+    DirectionType getDirection() { direction; }
 
 
 private:
@@ -192,12 +234,12 @@ private:
         return time.asMilliseconds() / msPerFrame;
     }
 
-    Config::Animation settings;
+    Config::Spritesheet settings;
 
     sf::Texture texture;
     sf::Sprite sprite;
-    Type type = Type::IDLE;
-    Direction direction = Direction::RIGHT;
+    AnimationType type = AnimationType::IDLE;
+    DirectionType direction = DirectionType::RIGHT;
     
     sf::Time time;
 };
@@ -248,10 +290,29 @@ struct Entity
         COUNT
     };
 
+    int GetComponentIndex(ComponentType type)
+    {
+        return components[static_cast<std::size_t>(type)];
+    }
+
+    void SetComonentIndex(ComponentType type, int index)
+    {
+        components[static_cast<std::size_t>(type)] = index;
+    }
+
     Entity(Scene& scene) : parentScene(scene) 
     {
         for (auto& component : components) component = -1;
     }
+
+    void AddBinding(sf::Keyboard::Key key, Action action);
+    KeyBindings& GetBindings();
+
+    void AddRectangleShape(float width, float height, float xPos = 0, float yPos = 0);
+    sf::RectangleShape& GetRectangleShape();
+
+    void AddRectangleBody(float width, float height, float xPos = 0, float yPos = 0, b2BodyType type = b2_staticBody);
+    b2Body& GetRectangleBody();
 
     std::array <int, static_cast<std::size_t>(ComponentType::COUNT)> components;
     Scene& parentScene;
@@ -260,9 +321,9 @@ struct Entity
 
 struct Scene
 {
-    Scene() : world(b2Vec2(0.0f, 9.8f)) 
+    Scene() : world(b2Vec2(0.0f, 0.0f)) 
     {
-        music.openFromFile("audio\\ambient\\ambient.wav");
+        music.openFromFile("audio\\ambient\\dark.wav");
         background.loadFromFile("textures\\background.png");
     }
 
@@ -296,6 +357,91 @@ struct Scene
     sf::Music music;
     b2World world;
 };
+
+void Entity::AddBinding(sf::Keyboard::Key key, Action action)
+{
+    const int bindingIndex = GetComponentIndex(ComponentType::BINDINGS);
+    if (bindingIndex < 0)
+    {
+        KeyBindings newBindings;
+        newBindings[key] = action;
+        SetComonentIndex(ComponentType::BINDINGS, parentScene.bindings.size());
+        parentScene.bindings.push_back(newBindings);
+    }
+    else
+    {
+        KeyBindings& bindgings = parentScene.bindings[bindingIndex];
+        bindgings[key] = action;
+    }
+}
+
+KeyBindings& Entity::GetBindings()
+{
+    const int bindingIndex = GetComponentIndex(ComponentType::BINDINGS);
+    return parentScene.bindings[bindingIndex];
+}
+
+void Entity::AddRectangleShape(float width, float height, float xPos, float yPos)
+{
+    sf::RectangleShape newRect;
+    //newRect.setFillColor(sf::Color::Green);
+    newRect.setSize({ width, height });
+    newRect.setOrigin(width / 2, height / 2);
+    newRect.setPosition(xPos, yPos);
+
+    const int bindingIndex = GetComponentIndex(ComponentType::SHAPE);
+    if (bindingIndex < 0)
+    {
+        SetComonentIndex(ComponentType::SHAPE, parentScene.shapes.size());
+        parentScene.shapes.push_back(std::move(newRect));
+    }
+    else
+    {
+        parentScene.shapes[bindingIndex] = newRect;
+    }
+}
+
+sf::RectangleShape& Entity::GetRectangleShape()
+{
+    const int bindingIndex = GetComponentIndex(ComponentType::SHAPE);
+    return parentScene.shapes[bindingIndex];
+}
+
+void Entity::AddRectangleBody(float width, float height, float xPos, float yPos, b2BodyType type)
+{
+    b2BodyDef bodyDef;
+    bodyDef.type = type;
+    bodyDef.position.Set(xPos, yPos);
+    bodyDef.angularDamping = 15.0f;
+    bodyDef.linearDamping = 10.0f;
+    b2Body* body = parentScene.world.CreateBody(&bodyDef);
+
+    b2PolygonShape boxShape;
+    boxShape.SetAsBox(width / 2, height / 2);
+
+    b2FixtureDef fixture;
+    fixture.shape = &boxShape;
+    fixture.density = 1.0f;
+    fixture.friction = 0.8f;
+    body->CreateFixture(&fixture);
+
+    const int bindingIndex = GetComponentIndex(ComponentType::BODY);
+    if (bindingIndex < 0)
+    {
+        SetComonentIndex(ComponentType::BODY, parentScene.bodies.size());
+        parentScene.bodies.push_back(body);
+    }
+    else
+    {
+        parentScene.bodies[bindingIndex] = body;
+    }
+}
+
+b2Body& Entity::GetRectangleBody()
+{
+    const int bindingIndex = GetComponentIndex(ComponentType::BODY);
+    return *parentScene.bodies[bindingIndex];
+}
 
 class Game
 {
@@ -339,8 +485,8 @@ public:
 
     void update(const sf::Time& elapsedTime)
     {
-        const int32 velocityIterations = 6;
-        const int32 positionIterations = 2;
+        const int32 velocityIterations = 50;
+        const int32 positionIterations = 50;
         scene.world.Step(elapsedTime.asSeconds(), velocityIterations, positionIterations);
 
         toDrawList.clear();
@@ -413,13 +559,32 @@ public:
 
                 if (bodyLinearVelocity.has_value())
                 {
+                    const float velVectLen = bodyLinearVelocity.value().Length();
                     const float bias = 0.01f;
-                    auto type = Animation::Type::WALK;
-                    if (bodyLinearVelocity.value().x <= -bias) animation.setDirection(Animation::Direction::LEFT);
-                    else if (bodyLinearVelocity.value().x >= bias) animation.setDirection(Animation::Direction::RIGHT);
-                    else type = Animation::Type::IDLE;
-                    animation.setType(type);
-                    if (type == Animation::Type::WALK)
+
+                    if (velVectLen > bias)
+                    {
+                        animation.setType(AnimationType::WALK);
+                        float absX = std::fabsf(bodyLinearVelocity.value().x);
+                        float absY = std::fabsf(bodyLinearVelocity.value().y);
+                        if (absX >= absY)
+                        {
+                            if (bodyLinearVelocity.value().x <= -bias)     animation.setDirection(DirectionType::LEFT);
+                            else if (bodyLinearVelocity.value().x >= bias) animation.setDirection(DirectionType::RIGHT);
+                        }
+                        else
+                        {
+                            if (bodyLinearVelocity.value().y <= -bias)     animation.setDirection(DirectionType::UP);
+                            else if (bodyLinearVelocity.value().y >= bias) animation.setDirection(DirectionType::DOWN);
+                        }
+                    }
+                    else
+                    {
+                        animation.setType(AnimationType::IDLE);
+                    }
+
+                    // NEED TO MOVE TO SOMEWHERE !!!
+                    if (animation.getType() == AnimationType::WALK)
                     {
                         audioSystem.playSound(AudioSystem::SoundType::STEP);
                     }
@@ -441,13 +606,13 @@ public:
 
     void renderFrame()
     {
-        window.clear(sf::Color::White);
-        sf::Sprite backgroundSprite(scene.background);
-        window.draw(backgroundSprite);
-
-        for (auto& sprite : sprites) window.draw(sprite);
+        window.clear(sf::Color::Black);
+        //sf::Sprite backgroundSprite(scene.background);
+        //window.draw(backgroundSprite);
 
         for (auto* shape : toDrawList) window.draw(*shape);
+
+        for (auto& sprite : sprites) window.draw(sprite);
 
         window.display();
     }
@@ -483,6 +648,11 @@ private:
     std::vector<sf::Sprite> sprites;
 };
 
+const float bias = 0.01f;
+const float walkForce = 12.0f;
+const float jumpInpulse = 3.0f;
+const float maxVelocity = 5;
+
 int main()
 {
     const std::string windowConfigPath = "config\\settings.xml";
@@ -490,122 +660,102 @@ int main()
     Config::Window windowSettings = config.getWindowSettings();
     Game game(windowSettings);
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    {
+        const float width = 10;
+        const float height = 10;
+        const float x = 5;
+        const float y = 0;
+
+        Entity& entity = game.scene.GetEntityRef(game.scene.CreateEntity());
+        entity.AddRectangleShape(meterToPixel(width), meterToPixel(height));
+        entity.GetRectangleShape().setTexture(&game.scene.background);
+        entity.AddRectangleBody(width, height, x, y);
+        entity.GetRectangleBody().SetEnabled(false);
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const float player_w = 1;
     const float player_h = 1;
     const float player_x = 3;
     const float player_y = 0;
 
-    b2BodyDef bodyDef;
-    bodyDef.type = b2_dynamicBody;
-    bodyDef.position.Set(player_x, player_y);
-    b2Body* body = game.scene.world.CreateBody(&bodyDef);
-
-    b2PolygonShape dynamicBox;
-    dynamicBox.SetAsBox(player_w/2, player_h/2);
-    b2CircleShape circleShape;
-    circleShape.m_radius = player_w / 2;
-
-    b2FixtureDef fixtureDef;
-    //fixtureDef.shape = &dynamicBox;
-    fixtureDef.shape = &circleShape;
-    fixtureDef.density = 1.0f;
-    fixtureDef.friction = 0.8f;
-    fixtureDef.restitution = 0.3f;
-
-    body->CreateFixture(&fixtureDef);
-    body->SetFixedRotation(true);
-
-    Config::Animation animationSettings = config.getAnimationSettings();
+    Config::Spritesheet animationSettings = config.getAnimationSettings()[0];
 
     Animation playerAnimation(animationSettings);
-    //playerAnimation.setPosition(windowSettings.w / 2.0f, windowSettings.h / 2.0f);
-    const float bias = 0.01f;
-    const float walkForce = 10.0f;
-    const float jumpInpulse = 3.0f;
-    const float maxVelocity = 5;
-
-    KeyBindings playerControls;
-    playerControls[sf::Keyboard::A] = [&](bool pressed)
-    {
-        auto linearVelocity = body->GetLinearVelocity();
-        if (body->GetLinearVelocity().x >= -maxVelocity && body->GetLinearVelocity().x <= 0)
-        {
-            body->ApplyForceToCenter({ -walkForce, 0 }, true);
-        }
-    };
-
-    playerControls[sf::Keyboard::D] = [&](bool pressed)
-    {
-        auto linearVelocity = body->GetLinearVelocity();
-        if (body->GetLinearVelocity().x >= 0 && body->GetLinearVelocity().x <= maxVelocity)
-        {
-            body->ApplyForceToCenter({ walkForce, 0 }, true);
-        }
-    };
-
-    playerControls[sf::Keyboard::Space] = [&](bool pressed)
-    {
-        auto linearVelocity = body->GetLinearVelocity();
-
-        if (body->GetLinearVelocity().y <= bias && body->GetLinearVelocity().y >= -bias)
-        {
-            body->ApplyLinearImpulseToCenter({ 0, -jumpInpulse }, true);
-        }
-    };
-
-    sf::RectangleShape playerRect;
-    playerRect.setFillColor(sf::Color::Green);
-    playerRect.setSize({ meterToPixel(player_w), meterToPixel(player_h) });
-    playerRect.setOrigin(playerRect.getSize().x / 2, playerRect.getSize().y / 2);
 
     {
         const std::size_t newEntityId = game.scene.CreateEntity();
         Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::BINDINGS)] = game.scene.bindings.size();
-        game.scene.bindings.push_back(playerControls);
+        entity.AddRectangleBody(player_w, player_h, player_x, player_y, b2_dynamicBody);
+        b2Body* body = &entity.GetRectangleBody();
+        body->SetFixedRotation(true);
+
+        entity.AddBinding(sf::Keyboard::A, [body](bool pressed)
+        {
+            auto linearVelocity =  body->GetLinearVelocity();
+            //if (body->GetLinearVelocity().x >= -maxVelocity && body->GetLinearVelocity().x <= 0)
+            {
+                body->ApplyForceToCenter({ -walkForce, 0 }, true);
+            }
+        });
+
+        entity.AddBinding(sf::Keyboard::D, [body](bool pressed)
+        {
+            auto linearVelocity = body->GetLinearVelocity();
+            //if (body->GetLinearVelocity().x >= 0 && body->GetLinearVelocity().x <= maxVelocity)
+            {
+                body->ApplyForceToCenter({ walkForce, 0 }, true);
+            }
+        });
+
+        entity.AddBinding(sf::Keyboard::W, [&body](bool pressed)
+        {
+            auto linearVelocity = body->GetLinearVelocity();
+            //if (body->GetLinearVelocity().y <= bias && body->GetLinearVelocity().y >= -bias)
+            {
+                body->ApplyForceToCenter({ 0, -walkForce }, true);
+            }
+        });
+
+        entity.AddBinding(sf::Keyboard::S, [&body](bool pressed)
+        {
+            auto linearVelocity = body->GetLinearVelocity();
+            //if (body->GetLinearVelocity().y <= bias && body->GetLinearVelocity().y >= -bias)
+            {
+                body->ApplyForceToCenter({0, walkForce}, true);
+            }
+        });
 
         entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = game.scene.animations.size();
         game.scene.animations.push_back(playerAnimation);
-
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
-        game.scene.bodies.push_back(body);
+        //entity.AddAnimation(config.getAnimationSettings());
 
         entity.cameraFocus = true;
     }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    const float groundWidth = 10;
-    const float groundHeight = 0.1;
-    const float groundX = 5; //windowSettings.w / 2.0f;
-    const float groundY = 5; //windowSettings.h - groundHeight;
-
-    sf::RectangleShape groundRect;
-    groundRect.setFillColor(sf::Color::Green);
-    groundRect.setSize({ meterToPixel(groundWidth), meterToPixel(groundHeight) });
-    groundRect.setOrigin(groundRect.getSize().x/ 2 , groundRect.getSize().y / 2);
-
-    b2BodyDef groundBodyDef;
-    groundBodyDef.position.Set(groundX, groundY);
-    b2Body* groundBody = game.scene.world.CreateBody(&groundBodyDef);
-
-    b2PolygonShape groundBox;
-    groundBox.SetAsBox(groundWidth/2, groundHeight/2);
-
-    b2FixtureDef groundfixtureDef;
-    groundfixtureDef.shape = &groundBox;
-    groundfixtureDef.density = 0.0f;
-    groundfixtureDef.friction = 0.8f;
-    groundBody->CreateFixture(&groundfixtureDef);
-
     {
-        const std::size_t newEntityId = game.scene.CreateEntity();
-        Entity& entity = game.scene.GetEntityRef(newEntityId);
+        const float width = 10;
+        const float height = 0.1;
+        const float x = 5;
+        const float y = 5;
 
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
-        game.scene.shapes.push_back(std::move(groundRect));
+        Entity& entity = game.scene.GetEntityRef(game.scene.CreateEntity());
+        entity.AddRectangleShape(meterToPixel(width), meterToPixel(height));
+        entity.AddRectangleBody(width, height, x, y);
+    }
 
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
-        game.scene.bodies.push_back(groundBody);
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    {
+        const float width = 10;
+        const float height = 0.1;
+        const float x = 5;
+        const float y = -5;
+
+        Entity& entity = game.scene.GetEntityRef(game.scene.CreateEntity());
+        entity.AddRectangleShape(meterToPixel(width), meterToPixel(height));
+        entity.AddRectangleBody(width, height, x, y);
     }
     
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -613,105 +763,24 @@ int main()
     const float rightWallHeight = 10;
     const float rightWallX = 10;
     const float rightWallY = 0;
-
-    sf::RectangleShape rightWallRect;
-    rightWallRect.setFillColor(sf::Color::Green);
-    rightWallRect.setSize({ meterToPixel(rightWallWidth), meterToPixel(rightWallHeight) });
-    rightWallRect.setOrigin(rightWallRect.getSize().x / 2, rightWallRect.getSize().y / 2);
-
-    b2BodyDef rightWallBodyDef;
-    rightWallBodyDef.position.Set(rightWallX, rightWallY);
-    b2Body* rightWallBody = game.scene.world.CreateBody(&rightWallBodyDef);
-
-    b2PolygonShape rightWallBox;
-    rightWallBox.SetAsBox(rightWallWidth / 2, rightWallHeight / 2);
-
-    b2FixtureDef rightWallfixtureDef;
-    rightWallfixtureDef.shape = &rightWallBox;
-    rightWallfixtureDef.density = 0.0f;
-    rightWallfixtureDef.friction = 0.8f;
-    rightWallBody->CreateFixture(&rightWallfixtureDef);
-
     {
         const std::size_t newEntityId = game.scene.CreateEntity();
         Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
-        game.scene.shapes.push_back(std::move(rightWallRect));
-
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
-        game.scene.bodies.push_back(rightWallBody);
+        entity.AddRectangleShape(meterToPixel(rightWallWidth), meterToPixel(rightWallHeight));
+        entity.AddRectangleBody(rightWallWidth, rightWallHeight, rightWallX, rightWallY);
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const float leftWallWidth = 0.1;
     const float leftWallHeight = 10;
     const float leftWallX = 0;
     const float leftWallY = 0;
-
-    sf::RectangleShape leftWallRect;
-    leftWallRect.setFillColor(sf::Color::Green);
-    leftWallRect.setSize({ meterToPixel(leftWallWidth), meterToPixel(leftWallHeight) });
-    leftWallRect.setOrigin(leftWallRect.getSize().x / 2, leftWallRect.getSize().y / 2);
-
-    b2BodyDef leftWallBodyDef;
-    leftWallBodyDef.position.Set(leftWallX, leftWallY);
-    b2Body* leftWallBody = game.scene.world.CreateBody(&leftWallBodyDef);
-
-    b2PolygonShape leftWallBox;
-    leftWallBox.SetAsBox(leftWallWidth / 2, leftWallHeight / 2);
-
-    b2FixtureDef leftWallfixtureDef;
-    leftWallfixtureDef.shape = &leftWallBox;
-    leftWallfixtureDef.density = 0.0f;
-    leftWallfixtureDef.friction = 0.8f;
-    leftWallBody->CreateFixture(&leftWallfixtureDef);
-
     {
         const std::size_t newEntityId = game.scene.CreateEntity();
         Entity& entity = game.scene.GetEntityRef(newEntityId);
 
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
-        game.scene.shapes.push_back(std::move(leftWallRect));
-
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
-        game.scene.bodies.push_back(leftWallBody);
-    }
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    const float box_w = 1;
-    const float box_h = 0.5;
-    const float box_x = 3;
-    const float box_y = 3;
-
-    b2BodyDef boxBodyDef;
-    boxBodyDef.type = b2_dynamicBody;
-    boxBodyDef.position.Set(box_x, box_y);
-    b2Body* boxBody = game.scene.world.CreateBody(&boxBodyDef);
-
-    b2PolygonShape boxDynamicBox;
-    boxDynamicBox.SetAsBox(box_w / 2, box_h / 2);
-
-    b2FixtureDef boxFixtureDef;
-    boxFixtureDef.shape = &boxDynamicBox;
-    boxFixtureDef.density = 10.0f;
-    boxFixtureDef.friction = 0.8f;
-    boxFixtureDef.restitution = 0.3f;
-
-    boxBody->CreateFixture(&boxFixtureDef);
-
-    sf::RectangleShape boxRect;
-    boxRect.setFillColor(sf::Color::Red);
-    boxRect.setSize({ meterToPixel(box_w), meterToPixel(box_h) });
-    boxRect.setOrigin(boxRect.getSize().x / 2, boxRect.getSize().y / 2);
-
-    {
-        const std::size_t newEntityId = game.scene.CreateEntity();
-        Entity& entity = game.scene.GetEntityRef(newEntityId);
-
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::SHAPE)] = game.scene.shapes.size();
-        game.scene.shapes.push_back(std::move(boxRect));
-
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::BODY)] = game.scene.bodies.size();
-        game.scene.bodies.push_back(boxBody);
+        entity.AddRectangleShape(meterToPixel(leftWallWidth), meterToPixel(leftWallHeight));
+        entity.AddRectangleBody(leftWallWidth, leftWallHeight, leftWallX, leftWallY);
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

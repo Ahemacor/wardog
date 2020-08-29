@@ -3,9 +3,18 @@
     <GameWindow>
         <Window name="Test Simple Animation" w="1280" h="720" />
     </GameWindow>
-	<Animation>
-        <Common x_offset="0" y_offset="0" width="32" height= "32" scale="4" />
-		<Idle row="1" num_frames="6" frame_time_ms="300" />
-		<Walk row="5" num_frames="18" frame_time_ms="35" />
-    </Animation>
+	<Spritesheet texture="spritelist" x_offset="0" y_offset="0" width="32" height= "32" scale="4">
+		<Animation name="Idle" num_frames="6" frame_time_ms="300">
+			<Up row_index=0/>
+			<Down row_index=1/>
+			<Left row_index=1/>
+			<Right row_index=0/>
+		</Animation>
+		<Animation name="Walk" num_frames="6" frame_time_ms="100">
+			<Up row_index=3/>
+			<Down row_index=2/>
+			<Left row_index=5/>
+			<Right row_index=4/>
+		</Animation>
+    </Spritesheet>
 </Settings>
