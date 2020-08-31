@@ -50,12 +50,76 @@ static constexpr const char* DirectionNames[] =
     "Right"
 };
 
-const std::string TEXTURE_DIR = "textures";
-const std::string TEXTURE_EXT = ".png";
+struct Resource
+{
+    enum class Type
+    {
+        TEXTURE,
+        SOUND,
+        MUSIC
+    };
+
+    void load(Type resoureType, const std::string& resourceName, const std::string& path)
+    {
+        type = resoureType;
+        name = resourceName;
+
+        switch (type)
+        {
+        case Resource::Type::TEXTURE:
+            value = sf::Texture();
+            std::get<sf::Texture>(value).loadFromFile(path);
+            break;
+        case Resource::Type::SOUND:
+            value = sf::SoundBuffer();
+            std::get<sf::SoundBuffer>(value).loadFromFile(path);
+            break;
+        case Resource::Type::MUSIC:
+            value = new sf::Music;
+            std::get<sf::Music*>(value)->openFromFile(path);
+            break;
+        default:
+            break;
+        }
+    }
+
+    Type getType() { return type; }
+
+    std::string getName() { return name; }
+
+    sf::Texture& getTextureRef()
+    {
+        return std::get<sf::Texture>(value);
+    }
+
+    sf::SoundBuffer& getSoundRef()
+    {
+        return std::get<sf::SoundBuffer>(value);
+    }
+
+    sf::Music& getMusicRef()
+    {
+        return *std::get<sf::Music*>(value);
+    }
+
+private:
+    Type type;
+    std::string name;
+    std::variant<sf::Texture, sf::SoundBuffer, sf::Music*> value;
+};
+
+
+const std::string TEXTURE_SPRITE_NAME = "spritelist";
+const std::string TEXTURE_TEST_NAME = "test";
+const std::string SOUND_STEP_NAME = "step";
+const std::string MUSIC_AMBIENT_NAME = "ambient";
+std::unordered_map<std::string, Resource> g_resources;
 
 class Config
 {
 public:
+    static constexpr const char* PATH_DELIMITER = "\\";
+
     static constexpr const char* XML_TAG_SPRITE_SHEET = "Spritesheet";
     static constexpr const char* XML_TAG_SPRITE_SHEET_TEXTURE = "texture";
     static constexpr const char* XML_TAG_SPRITE_SHEET_X_OFFSET = "x_offset";
@@ -98,6 +162,29 @@ public:
         std::map<std::string, Animation> animations;
     };
 
+    struct Entity
+    {
+        std::string name;
+
+        struct Component
+        {
+            enum class Type
+            {
+                BODY,
+                SHAPE
+            };
+            Type type;
+
+            b2BodyType bodyType;
+            std::string texture;
+            float width;
+            float height;
+            float x;
+            float y;
+        };
+        std::vector<Component> components;
+    };
+
 
     Config(const std::string& filepath)
     : doc(filepath.c_str())
@@ -108,6 +195,46 @@ public:
         doc.LoadFile();
         pElem = hDoc.FirstChildElement().Element();
         hRoot = TiXmlHandle(pElem);
+        LoadResoures();
+    }
+
+    void LoadResoures()
+    {
+        static constexpr const char* XML_TAG_RESOURCES = "Resources";
+        static constexpr const char* XML_TAG_RESOURCES_TYPE = "type";
+        static constexpr const char* XML_TAG_RESOURCES_DIRECTORY = "directory";
+        static constexpr const char* XML_TAG_RESOURCE_TYPE_TEXTURE = "Texture";
+        static constexpr const char* XML_TAG_RESOURCE_TYPE_SOUND = "Sound";
+        static constexpr const char* XML_TAG_RESOURCE_TYPE_MUSIC = "Music";
+        static constexpr const char* XML_TAG_RESOURCE = "Resource";
+        static constexpr const char* XML_TAG_RESOURCE_NAME = "name";
+        static constexpr const char* XML_TAG_RESOURCE_EXT = "ext";
+
+        TiXmlElement* resouresElem = hRoot.FirstChild(XML_TAG_RESOURCES).Element();
+        for (resouresElem; resouresElem != nullptr; resouresElem = resouresElem->NextSiblingElement())
+        {
+            const std::string elemName = resouresElem->Value();
+            if (elemName != XML_TAG_RESOURCES) continue;
+
+            const std::string typeString = resouresElem->Attribute(XML_TAG_RESOURCES_TYPE);
+            const std::string directory  = resouresElem->Attribute(XML_TAG_RESOURCES_DIRECTORY);
+
+            Resource::Type type = Resource::Type::TEXTURE;
+            if      (typeString == XML_TAG_RESOURCE_TYPE_TEXTURE) type = Resource::Type::TEXTURE;
+            else if (typeString == XML_TAG_RESOURCE_TYPE_SOUND)   type = Resource::Type::SOUND;
+            else if (typeString == XML_TAG_RESOURCE_TYPE_MUSIC)   type = Resource::Type::MUSIC;
+            else continue; //ERROR 
+
+            TiXmlElement* resourceElem = resouresElem->FirstChild(XML_TAG_RESOURCE)->ToElement();
+            for (resourceElem; resourceElem != nullptr; resourceElem = resourceElem->NextSiblingElement())
+            {
+                const std::string resourceName = resourceElem->Attribute(XML_TAG_RESOURCE_NAME);
+                const std::string resourceExt = resourceElem->Attribute(XML_TAG_RESOURCE_EXT);
+                const std::string resourcePath = directory + PATH_DELIMITER + resourceName + "." + resourceExt;
+
+                g_resources[resourceName].load(type, resourceName, resourcePath);
+            }
+        }
     }
 
     Window getWindowSettings()
@@ -127,6 +254,9 @@ public:
         TiXmlElement* spriteSheetElem = hRoot.FirstChild(Config::XML_TAG_SPRITE_SHEET).Element();
         for (spriteSheetElem; spriteSheetElem != nullptr; spriteSheetElem = spriteSheetElem->NextSiblingElement())
         {
+            const std::string elemName = spriteSheetElem->Value();
+            if (elemName != XML_TAG_SPRITE_SHEET) continue;
+
             Config::Spritesheet spriteSheetInfo;
             spriteSheetInfo.texture = spriteSheetElem->Attribute(Config::XML_TAG_SPRITE_SHEET_TEXTURE);
             spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_X_OFFSET, &spriteSheetInfo.x_offset);
@@ -157,6 +287,74 @@ public:
         return spriteSheets;
     }
 
+    std::vector<Entity> getEntityDescriptions()
+    {
+        static constexpr const char* XML_TAG_ENTITY = "Entity";
+        static constexpr const char* XML_TAG_ENTITY_NAME = "name";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_BODY = "Body";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_SHAPE = "Shape";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_TYPE = "type";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_TEXTURE = "texture";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_TYPE_STATIC = "static";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_TYPE_DYNAMIC = "dynamic";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_WIDTH = "width";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_HEIGHT = "height";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_X = "x";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_Y = "y";
+
+        std::vector<Entity> entities;
+        TiXmlElement* entityElem = hRoot.FirstChild(XML_TAG_ENTITY).Element();
+        for (entityElem; entityElem != nullptr; entityElem = entityElem->NextSiblingElement())
+        {
+            const std::string elemName = entityElem->Value();
+            if (elemName != XML_TAG_ENTITY) continue;
+
+            Entity entityInfo;
+            entityInfo.name = entityElem->Attribute(XML_TAG_ENTITY_NAME);
+
+            TiXmlElement* componentElem = entityElem->FirstChild()->ToElement();
+            for (componentElem; componentElem != nullptr; componentElem = componentElem->NextSiblingElement())
+            {
+                Entity::Component componentInfo;
+                std::string componentName = componentElem->Value();
+                if (componentName == XML_TAG_ENTITY_COMPONENT_BODY)
+                {
+                    componentInfo.type = Entity::Component::Type::BODY;
+                    std::string componentTypeString = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TYPE);
+                    if (componentTypeString == XML_TAG_ENTITY_COMPONENT_TYPE_STATIC)
+                    {
+                        componentInfo.bodyType = b2_staticBody;
+                    }
+                    else if (componentTypeString == XML_TAG_ENTITY_COMPONENT_TYPE_DYNAMIC)
+                    {
+                        componentInfo.bodyType = b2_dynamicBody;
+                    }
+                }
+                else if (componentName == XML_TAG_ENTITY_COMPONENT_SHAPE)
+                {
+                    componentInfo.type = Entity::Component::Type::SHAPE;
+                }
+
+                const char* pTexture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
+                if (pTexture != nullptr)
+                {
+                    componentInfo.texture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
+                }
+
+                componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_WIDTH, &componentInfo.width);
+                componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_HEIGHT, &componentInfo.height);
+                componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_X, &componentInfo.x);
+                componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_Y, &componentInfo.y);
+
+                entityInfo.components.push_back(componentInfo);
+            }
+
+            entities.push_back(entityInfo);
+        }
+
+        return entities;
+    }
+
 private:
     TiXmlDocument doc;
     TiXmlHandle hDoc;
@@ -175,16 +373,9 @@ public:
     Animation(const Config::Spritesheet& animationSettings)
     {
         settings = animationSettings;
-        std::string texturePath;
-        texturePath += TEXTURE_DIR;
-        texturePath += "\\";
-        texturePath += settings.texture;
-        texturePath += TEXTURE_EXT;
-
-        texture.loadFromFile(texturePath);
-        sprite.setTexture(texture);
         sprite.setOrigin(settings.width / 2.0f, settings.height / 2.0f);
         sprite.setScale((float)settings.scale, (float)settings.scale);
+        sprite.setTexture(g_resources[settings.texture].getTextureRef());
     }
 
     sf::Sprite getSprite(AnimationType type, DirectionType direction, sf::Time elapsedTime)
@@ -236,7 +427,6 @@ private:
 
     Config::Spritesheet settings;
 
-    sf::Texture texture;
     sf::Sprite sprite;
     AnimationType type = AnimationType::IDLE;
     DirectionType direction = DirectionType::RIGHT;
@@ -249,15 +439,8 @@ class AudioSystem
 public:
     enum class SoundType
     {
-        STEP,
-
-        COUNT
+        STEP
     };
-
-    AudioSystem()
-    {
-        soundBuffers[static_cast<std::size_t>(SoundType::STEP)].loadFromFile("audio\\steps\\sand1.wav");
-    }
 
     void playSound(SoundType type)
     {
@@ -265,15 +448,36 @@ public:
         {
             if (player.getStatus() != sf::Sound::Status::Playing)
             {
-                player.setBuffer(soundBuffers[static_cast<std::size_t>(type)]);
+                switch (type)
+                {
+                case SoundType::STEP:
+                    player.setBuffer(g_resources[SOUND_STEP_NAME].getSoundRef());
+                    break;
+                }
+
                 player.play();
             }
         }
     }
 
+    void playMusic(const std::string& musicName, float volume = 10, bool loop = true)
+    {
+        if (!currentMusicName.empty())
+        {
+            sf::Music& music = g_resources[currentMusicName].getMusicRef();
+            music.stop();
+        }
+
+        currentMusicName = musicName;
+        sf::Music& music = g_resources[currentMusicName].getMusicRef();
+        music.setLoop(true);
+        music.setVolume(10.0f);
+        music.play();
+    }
+
 private:
-    std::array<sf::SoundBuffer, static_cast<std::size_t>(SoundType::COUNT)> soundBuffers;
     std::array<sf::Sound, 10> players;
+    std::string currentMusicName;
 };
 
 struct Scene;
@@ -317,15 +521,13 @@ struct Entity
     std::array <int, static_cast<std::size_t>(ComponentType::COUNT)> components;
     Scene& parentScene;
     bool cameraFocus = false;
+    std::string name;
 };
 
 struct Scene
 {
     Scene() : world(b2Vec2(0.0f, 0.0f)) 
-    {
-        music.openFromFile("audio\\ambient\\dark.wav");
-        background.loadFromFile("textures\\background.png");
-    }
+    {}
 
     std::size_t AddEntity(Entity&& entity)
     {
@@ -353,8 +555,6 @@ struct Scene
     std::vector<Animation> animations;
     std::vector<sf::Texture> textures;
 
-    sf::Texture background;
-    sf::Music music;
     b2World world;
 };
 
@@ -384,7 +584,6 @@ KeyBindings& Entity::GetBindings()
 void Entity::AddRectangleShape(float width, float height, float xPos, float yPos)
 {
     sf::RectangleShape newRect;
-    //newRect.setFillColor(sf::Color::Green);
     newRect.setSize({ width, height });
     newRect.setOrigin(width / 2, height / 2);
     newRect.setPosition(xPos, yPos);
@@ -513,7 +712,7 @@ public:
                                           (float)meterToPixel(pBody->GetPosition().y) - (window.getSize().y - 200) };
                 }
                 bodyPosition = { (float)meterToPixel(pBody->GetPosition().x), (float)meterToPixel(pBody->GetPosition().y) };
-                bodyPosition = bodyPosition.value() - cameraTranslation;
+                //bodyPosition = bodyPosition.value() - cameraTranslation;
                 bodyAngle = radianToDegree(pBody->GetAngle());
                 bodyLinearVelocity = pBody->GetLinearVelocity();
             }
@@ -547,8 +746,17 @@ public:
             if(shapeIndex >= 0)
             {
                 sf::Shape* shape = &scene.shapes[shapeIndex];
-                if (bodyPosition.has_value())shape->setPosition(bodyPosition.value().x, bodyPosition.value().y);
-                if (bodyAngle.has_value())shape->setRotation(bodyAngle.value());
+
+                if (bodyIndex < 0)
+                {
+                    bodyPosition = shape->getPosition();
+                    bodyAngle = shape->getRotation();
+                }
+                else
+                {
+                    if (bodyPosition.has_value())shape->setPosition(bodyPosition.value().x, bodyPosition.value().y);
+                    if (bodyAngle.has_value())shape->setRotation(bodyAngle.value());
+                }
                 toDrawList.push_back(shape);
             }
 
@@ -607,21 +815,27 @@ public:
     void renderFrame()
     {
         window.clear(sf::Color::Black);
-        //sf::Sprite backgroundSprite(scene.background);
-        //window.draw(backgroundSprite);
 
-        for (auto* shape : toDrawList) window.draw(*shape);
+        for (auto* shape : toDrawList) 
+        {
+            shape->move(-cameraTranslation);
+            window.draw(*shape);
+            shape->move(cameraTranslation);
+        }
 
-        for (auto& sprite : sprites) window.draw(sprite);
+        for (auto& sprite : sprites)
+        {
+            sprite.move(-cameraTranslation);
+            window.draw(sprite);
+            sprite.move(cameraTranslation);
+        }
 
         window.display();
     }
 
     void blockingRun()
     {
-        scene.music.setLoop(true);
-        scene.music.setVolume(10.0f);
-        scene.music.play();
+        audioSystem.playMusic(MUSIC_AMBIENT_NAME);
 
         sf::Time elapsedTime = clock.restart();
 
@@ -631,6 +845,44 @@ public:
             processMessages();
             update(elapsedTime);
             renderFrame();
+        }
+    }
+
+    void ParseEntityDescriptions(const std::vector<Config::Entity>& entityDescriptions)
+    {
+        for (const auto& entityDescription : entityDescriptions)
+        {
+            Entity& entity = scene.GetEntityRef(scene.CreateEntity());
+            entity.name = entityDescription.name;
+
+            for (const auto& componentDescription : entityDescription.components)
+            {
+                switch (componentDescription.type)
+                {
+                case Config::Entity::Component::Type::BODY:
+                {
+                    const float width = pixelToMeter(componentDescription.width);
+                    const float height = pixelToMeter(componentDescription.height);
+                    const float x = pixelToMeter(componentDescription.x);
+                    const float y = pixelToMeter(componentDescription.y);
+                    entity.AddRectangleBody(width, height, x, y, componentDescription.bodyType);
+                }
+                break;
+                case Config::Entity::Component::Type::SHAPE:
+                {
+                    const float width = componentDescription.width;
+                    const float height = componentDescription.height;
+                    const float x = componentDescription.x;
+                    const float y = componentDescription.y;
+                    entity.AddRectangleShape(width, height, x, y);
+                    if (!componentDescription.texture.empty())
+                    {
+                        entity.GetRectangleShape().setTexture(&g_resources[componentDescription.texture].getTextureRef());
+                    }
+                }
+                break;
+                }
+            }
         }
     }
 
@@ -660,20 +912,6 @@ int main()
     Config::Window windowSettings = config.getWindowSettings();
     Game game(windowSettings);
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    {
-        const float width = 10;
-        const float height = 10;
-        const float x = 5;
-        const float y = 0;
-
-        Entity& entity = game.scene.GetEntityRef(game.scene.CreateEntity());
-        entity.AddRectangleShape(meterToPixel(width), meterToPixel(height));
-        entity.GetRectangleShape().setTexture(&game.scene.background);
-        entity.AddRectangleBody(width, height, x, y);
-        entity.GetRectangleBody().SetEnabled(false);
-    }
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     const float player_w = 1;
     const float player_h = 1;
     const float player_x = 3;
@@ -694,95 +932,35 @@ int main()
         entity.AddBinding(sf::Keyboard::A, [body](bool pressed)
         {
             auto linearVelocity =  body->GetLinearVelocity();
-            //if (body->GetLinearVelocity().x >= -maxVelocity && body->GetLinearVelocity().x <= 0)
-            {
-                body->ApplyForceToCenter({ -walkForce, 0 }, true);
-            }
+            body->ApplyForceToCenter({ -walkForce, 0 }, true);
         });
 
         entity.AddBinding(sf::Keyboard::D, [body](bool pressed)
         {
             auto linearVelocity = body->GetLinearVelocity();
-            //if (body->GetLinearVelocity().x >= 0 && body->GetLinearVelocity().x <= maxVelocity)
-            {
-                body->ApplyForceToCenter({ walkForce, 0 }, true);
-            }
+            body->ApplyForceToCenter({ walkForce, 0 }, true);
         });
 
         entity.AddBinding(sf::Keyboard::W, [&body](bool pressed)
         {
             auto linearVelocity = body->GetLinearVelocity();
-            //if (body->GetLinearVelocity().y <= bias && body->GetLinearVelocity().y >= -bias)
-            {
-                body->ApplyForceToCenter({ 0, -walkForce }, true);
-            }
+            body->ApplyForceToCenter({ 0, -walkForce }, true);
         });
 
         entity.AddBinding(sf::Keyboard::S, [&body](bool pressed)
         {
             auto linearVelocity = body->GetLinearVelocity();
-            //if (body->GetLinearVelocity().y <= bias && body->GetLinearVelocity().y >= -bias)
-            {
-                body->ApplyForceToCenter({0, walkForce}, true);
-            }
+            body->ApplyForceToCenter({0, walkForce}, true);
         });
 
         entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = game.scene.animations.size();
         game.scene.animations.push_back(playerAnimation);
-        //entity.AddAnimation(config.getAnimationSettings());
 
         entity.cameraFocus = true;
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    {
-        const float width = 10;
-        const float height = 0.1;
-        const float x = 5;
-        const float y = 5;
-
-        Entity& entity = game.scene.GetEntityRef(game.scene.CreateEntity());
-        entity.AddRectangleShape(meterToPixel(width), meterToPixel(height));
-        entity.AddRectangleBody(width, height, x, y);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    {
-        const float width = 10;
-        const float height = 0.1;
-        const float x = 5;
-        const float y = -5;
-
-        Entity& entity = game.scene.GetEntityRef(game.scene.CreateEntity());
-        entity.AddRectangleShape(meterToPixel(width), meterToPixel(height));
-        entity.AddRectangleBody(width, height, x, y);
-    }
-    
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    const float rightWallWidth = 0.1;
-    const float rightWallHeight = 10;
-    const float rightWallX = 10;
-    const float rightWallY = 0;
-    {
-        const std::size_t newEntityId = game.scene.CreateEntity();
-        Entity& entity = game.scene.GetEntityRef(newEntityId);
-
-        entity.AddRectangleShape(meterToPixel(rightWallWidth), meterToPixel(rightWallHeight));
-        entity.AddRectangleBody(rightWallWidth, rightWallHeight, rightWallX, rightWallY);
-    }
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    const float leftWallWidth = 0.1;
-    const float leftWallHeight = 10;
-    const float leftWallX = 0;
-    const float leftWallY = 0;
-    {
-        const std::size_t newEntityId = game.scene.CreateEntity();
-        Entity& entity = game.scene.GetEntityRef(newEntityId);
-
-        entity.AddRectangleShape(meterToPixel(leftWallWidth), meterToPixel(leftWallHeight));
-        entity.AddRectangleBody(leftWallWidth, leftWallHeight, leftWallX, leftWallY);
-    }
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    std::vector<Config::Entity> entityDescriptions = config.getEntityDescriptions();
+    game.ParseEntityDescriptions(entityDescriptions);
 
     game.blockingRun();
 
