@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <Settings>
     <GameWindow>
-        <Window name="Test Simple Animation" w="1280" h="720" />
+        <Window name="Test level" w="1280" h="720" />
     </GameWindow>
 	<Resources type="Texture" directory="textures">
 		<Resource name="spritelist" ext="png"/>
@@ -11,11 +11,13 @@
 	</Resources>
 	<Resources type="Sound" directory="audio">
 		<Resource name="step" ext="wav"/>
+		<Resource name="explosion" ext="wav"/>
+		<Resource name="music" ext="wav"/>
 	</Resources>
 	<Resources type="Music" directory="audio">
 		<Resource name="ambient" ext="wav"/>
 	</Resources>
-	<Spritesheet texture="player" x_offset="0" y_offset="0" width="66" height= "66" scale="1">
+	<Spritesheet name="test animation" texture="player" x_offset="0" y_offset="0" width="66" height= "66" scale="2">
 		<Animation name="Idle" num_frames="1" frame_time_ms="100">
 			<Up row_index=3/>
 			<Down row_index=0/>
@@ -29,6 +31,15 @@
 			<Right row_index=2/>
 		</Animation>
     </Spritesheet>
+	<Actions>
+		<MoveLeftTest> 
+			<Move entity="test box" x="1" y="0"/>
+			<Sound name="step" />
+		</MoveLeftTest>
+	</Actions>
+	<Controls>
+		<SPACE action="MoveLeftTest"/>
+	</Controls>
 	<Entity name="ground"> 
 		<Shape width="1000" height="1000" x="500" y="0" texture="test" />
 	</Entity>
@@ -51,5 +62,6 @@
 	<Entity name="test box">
 		<Body type="dynamic" width="100" height="100" x="100" y="100" />	
 		<Shape width="100" height="100" texture="box"/>
+		<Animation name="test animation"/>
 	</Entity>
 </Settings>

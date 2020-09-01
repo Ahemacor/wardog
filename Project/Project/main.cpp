@@ -109,11 +109,117 @@ private:
 };
 
 
-const std::string TEXTURE_SPRITE_NAME = "spritelist";
-const std::string TEXTURE_TEST_NAME = "test";
 const std::string SOUND_STEP_NAME = "step";
 const std::string MUSIC_AMBIENT_NAME = "ambient";
 std::unordered_map<std::string, Resource> g_resources;
+
+class AudioSystem
+{
+public:
+    struct Player
+    {
+        sf::Sound sound;
+        std::string name;
+    };
+
+    void playSound(const std::string& soundName)
+    {
+        sf::Sound* pSound = nullptr;
+        for (auto& player : players)
+        {
+            if (player.sound.getStatus() == sf::Sound::Status::Playing)
+            {
+                if (player.name == soundName)
+                {
+                    return;
+                }
+            }
+            else if (pSound == nullptr)
+            {
+                player.sound.setBuffer(g_resources[soundName].getSoundRef());
+                player.name = soundName;
+                pSound = &player.sound;
+            }
+        }
+
+        if (pSound != nullptr)
+        {
+            pSound->play();
+        }
+    }
+
+    void stopSound(const std::string& soundName)
+    {
+        for (auto& player : players)
+        {
+            if (player.name == soundName)
+            {
+                player.name.clear();
+                if (player.sound.getStatus() == sf::Sound::Status::Playing)
+                {
+                    player.sound.stop();
+                }
+            }
+        }
+    }
+
+    void playMusic(const std::string& musicName, float volume = 10, bool loop = true)
+    {
+        if (!currentMusicName.empty())
+        {
+            sf::Music& music = g_resources[currentMusicName].getMusicRef();
+            music.stop();
+        }
+
+        currentMusicName = musicName;
+        sf::Music& music = g_resources[currentMusicName].getMusicRef();
+        music.setLoop(true);
+        music.setVolume(10.0f);
+        music.play();
+    }
+
+private:
+    std::array<Player, 10> players;
+    std::string currentMusicName;
+};
+
+AudioSystem* g_audio_system = nullptr;
+class Game;
+Game* g_game = nullptr;
+
+enum class ActionType
+{
+    Sound
+};
+
+using Action = std::function<void(bool)>;
+using ActionList = std::vector<Action>;
+using KeySet = std::set<sf::Keyboard::Key>;
+using Task = std::function<void()>;
+using KeyBindings = std::map<sf::Keyboard::Key, Action>;
+using ControlActions = std::map<sf::Keyboard::Key, ActionList>;
+
+ControlActions g_controls;
+
+Action BuildSoundAction(const std::string& soundName)
+{
+    return [soundName](bool pressed)
+    {
+        if (pressed)
+        {
+            g_audio_system->playSound(soundName);
+        }
+        else
+        {
+            g_audio_system->stopSound(soundName);
+        }
+    };
+}
+
+Action BuildMoveAction(const std::string& entityName, const b2Vec2& vector);
+
+
+std::unordered_map<std::string, ActionList> g_actions;
 
 class Config
 {
@@ -122,6 +228,7 @@ public:
 
     static constexpr const char* XML_TAG_SPRITE_SHEET = "Spritesheet";
     static constexpr const char* XML_TAG_SPRITE_SHEET_TEXTURE = "texture";
+    static constexpr const char* XML_TAG_SPRITE_SHEET_NAME = "name";
     static constexpr const char* XML_TAG_SPRITE_SHEET_X_OFFSET = "x_offset";
     static constexpr const char* XML_TAG_SPRITE_SHEET_Y_OFFSET = "y_offset";
     static constexpr const char* XML_TAG_SPRITE_SHEET_WIDTH = "width";
@@ -144,6 +251,7 @@ public:
 
     struct Spritesheet
     {
+        std::string name;
         std::string texture; 
         int x_offset = 0;
         int y_offset = 0;
@@ -171,12 +279,14 @@ public:
             enum class Type
             {
                 BODY,
-                SHAPE
+                SHAPE,
+                ANIMATION
             };
             Type type;
 
             b2BodyType bodyType;
             std::string texture;
+            std::string animation;
             float width;
             float height;
             float x;
@@ -259,6 +369,7 @@ public:
 
             Config::Spritesheet spriteSheetInfo;
             spriteSheetInfo.texture = spriteSheetElem->Attribute(Config::XML_TAG_SPRITE_SHEET_TEXTURE);
+            spriteSheetInfo.name = spriteSheetElem->Attribute(Config::XML_TAG_SPRITE_SHEET_NAME);
             spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_X_OFFSET, &spriteSheetInfo.x_offset);
             spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_Y_OFFSET, &spriteSheetInfo.y_offset);
             spriteSheetElem->QueryIntAttribute(Config::XML_TAG_SPRITE_SHEET_WIDTH, &spriteSheetInfo.width);
@@ -287,12 +398,72 @@ public:
         return spriteSheets;
     }
 
+    void initActions()
+    {
+        static constexpr const char* ACTIONS = "Actions";
+        static constexpr const char* SOUND = "Sound";
+        static constexpr const char* MOVE = "Move";
+
+        static constexpr const char* CONTROLS = "Controls"; 
+        static constexpr const char* CONTROL_SPACE = "SPACE";
+        static constexpr const char* ACTION = "action";
+        static constexpr const char* NAME = "name";
+        static constexpr const char* ENTITY = "entity";
+
+        TiXmlElement* actionsElem = hRoot.FirstChild(ACTIONS).Element();
+        for (actionsElem; actionsElem != nullptr; actionsElem = actionsElem->NextSiblingElement())
+        {
+            const std::string actionsElemName = actionsElem->Value();
+            if (actionsElemName != ACTIONS) continue;
+
+            TiXmlElement* actionBundleElem = actionsElem->FirstChild()->ToElement();
+            for (actionBundleElem; actionBundleElem != nullptr; actionBundleElem = actionBundleElem->NextSiblingElement())
+            {
+                const std::string actionBundleElemName = actionBundleElem->Value();
+
+                TiXmlElement* actionElem = actionBundleElem->FirstChild()->ToElement();
+                for (actionElem; actionElem != nullptr; actionElem = actionElem->NextSiblingElement())
+                {
+                    const std::string actionName = actionElem->Value();
+                    if (actionName == SOUND)
+                    {
+                        g_actions[actionBundleElemName].push_back(BuildSoundAction(actionElem->Attribute(NAME)));
+                    }
+                    else if (actionName == MOVE)
+                    {
+                        b2Vec2 vector;
+                        actionElem->QueryFloatAttribute("x", &vector.x);
+                        actionElem->QueryFloatAttribute("y", &vector.y);
+                        g_actions[actionBundleElemName].push_back(BuildMoveAction(actionElem->Attribute(ENTITY), vector));
+                    }
+
+                }
+            }
+        }
+
+        TiXmlElement* controlsElem = hRoot.FirstChild(CONTROLS).Element();
+        for (controlsElem; controlsElem != nullptr; controlsElem = controlsElem->NextSiblingElement())
+        {
+            const std::string controlsElemName = controlsElem->Value();
+            if (controlsElemName != CONTROLS) continue;
+
+            TiXmlElement* controlElem = controlsElem->FirstChild()->ToElement();
+            for (controlElem; controlElem != nullptr; controlElem = controlElem->NextSiblingElement())
+            {
+                const std::string controlName = controlElem->Value();
+                const std::string controlActionName = controlElem->Attribute(ACTION);
+                if (CONTROL_SPACE == controlName) g_controls[sf::Keyboard::Space] = g_actions[controlActionName];
+            }
+        }
+    }
+
     std::vector<Entity> getEntityDescriptions()
     {
         static constexpr const char* XML_TAG_ENTITY = "Entity";
         static constexpr const char* XML_TAG_ENTITY_NAME = "name";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_BODY = "Body";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_SHAPE = "Shape";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_ANIMAION = "Animation";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_TYPE = "type";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_TEXTURE = "texture";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_TYPE_STATIC = "static";
@@ -334,11 +505,20 @@ public:
                 {
                     componentInfo.type = Entity::Component::Type::SHAPE;
                 }
+                else if (componentName == XML_TAG_ENTITY_COMPONENT_ANIMAION)
+                {
+                    componentInfo.type = Entity::Component::Type::ANIMATION;
+                    const char* pAnimationName = componentElem->Attribute("name");
+                    if (pAnimationName != nullptr)
+                    {
+                        componentInfo.animation = pAnimationName;
+                    }
+                }
 
                 const char* pTexture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
                 if (pTexture != nullptr)
                 {
-                    componentInfo.texture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
+                    componentInfo.texture = pTexture;
                 }
 
                 componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_WIDTH, &componentInfo.width);
@@ -362,10 +542,7 @@ private:
     TiXmlHandle hRoot;
 };
 
-using KeySet = std::set<sf::Keyboard::Key>;
-using Action = std::function<void(bool)>;
-using Task = std::function<void()>;
-using KeyBindings = std::map<sf::Keyboard::Key, Action>;
+Config* g_config;
 
 class Animation
 {
@@ -415,6 +592,7 @@ public:
     void setDirection(DirectionType direction) { this->direction = direction; }
     DirectionType getDirection() { direction; }
 
+    std::string getName() { return settings.name; }
 
 private:
     int getColumnId(int msPerFrame, int numOfFrames, sf::Time elapsedTime)
@@ -434,51 +612,7 @@ private:
     sf::Time time;
 };
 
-class AudioSystem
-{
-public:
-    enum class SoundType
-    {
-        STEP
-    };
-
-    void playSound(SoundType type)
-    {
-        for (auto& player : players)
-        {
-            if (player.getStatus() != sf::Sound::Status::Playing)
-            {
-                switch (type)
-                {
-                case SoundType::STEP:
-                    player.setBuffer(g_resources[SOUND_STEP_NAME].getSoundRef());
-                    break;
-                }
-
-                player.play();
-            }
-        }
-    }
-
-    void playMusic(const std::string& musicName, float volume = 10, bool loop = true)
-    {
-        if (!currentMusicName.empty())
-        {
-            sf::Music& music = g_resources[currentMusicName].getMusicRef();
-            music.stop();
-        }
-
-        currentMusicName = musicName;
-        sf::Music& music = g_resources[currentMusicName].getMusicRef();
-        music.setLoop(true);
-        music.setVolume(10.0f);
-        music.play();
-    }
-
-private:
-    std::array<sf::Sound, 10> players;
-    std::string currentMusicName;
-};
+std::vector<Animation> g_animations;
 
 struct Scene;
 
@@ -546,6 +680,14 @@ struct Scene
     Entity& GetEntityRef(std::size_t entityId)
     {
         return entities[entityId];
+    }
+
+    Entity& GetEntityRefByName(const std::string& entityName)
+    {
+        Entity& pEntity = *std::find_if(entities.begin(),
+                                        entities.end(),
+                                        [entityName](auto& entity) {return entity.name == entityName; });
+        return pEntity;
     }
 
     std::vector<Entity> entities;
@@ -624,6 +766,8 @@ void Entity::AddRectangleBody(float width, float height, float xPos, float yPos,
     fixture.friction = 0.8f;
     body->CreateFixture(&fixture);
 
+    body->SetFixedRotation(true);
+
     const int bindingIndex = GetComponentIndex(ComponentType::BODY);
     if (bindingIndex < 0)
     {
@@ -663,12 +807,17 @@ public:
         switch (event.type)
         {
         case sf::Event::KeyPressed:
+        {
             pressedKeys.insert(event.key.code);
+        }
             break;
 
         case sf::Event::KeyReleased:
+        {
             releasedKeys.insert(event.key.code);
             pressedKeys.erase(event.key.code);
+
+        }
             break;
 
         case sf::Event::Closed:
@@ -712,7 +861,6 @@ public:
                                           (float)meterToPixel(pBody->GetPosition().y) - (window.getSize().y - 200) };
                 }
                 bodyPosition = { (float)meterToPixel(pBody->GetPosition().x), (float)meterToPixel(pBody->GetPosition().y) };
-                //bodyPosition = bodyPosition.value() - cameraTranslation;
                 bodyAngle = radianToDegree(pBody->GetAngle());
                 bodyLinearVelocity = pBody->GetLinearVelocity();
             }
@@ -729,6 +877,12 @@ public:
                         Task task = [findBind]() {findBind->second(false); };
                         toExecList.push_back(task);
                     }
+
+                    auto find = g_controls.find(keyCode);
+                    if (find != g_controls.cend())
+                    {
+                        for (auto& action : g_controls[keyCode]) action(false);
+                    }
                 }
 
                 for (const auto& keyCode : pressedKeys)
@@ -739,6 +893,12 @@ public:
                         auto& [bindKey, bindAction] = *findBind;
                         Task task = [findBind]() {findBind->second(true); };
                         toExecList.push_back(task);
+                    }
+
+                    auto find = g_controls.find(keyCode);
+                    if (find != g_controls.cend())
+                    {
+                        for (auto& action : g_controls[keyCode]) action(true);
                     }
                 }
             }
@@ -794,7 +954,7 @@ public:
                     // NEED TO MOVE TO SOMEWHERE !!!
                     if (animation.getType() == AnimationType::WALK)
                     {
-                        audioSystem.playSound(AudioSystem::SoundType::STEP);
+                        g_audio_system->playSound(SOUND_STEP_NAME);
                     }
                 }
                 sf::Sprite sprite = animation.getSprite(elapsedTime);
@@ -835,7 +995,7 @@ public:
 
     void blockingRun()
     {
-        audioSystem.playMusic(MUSIC_AMBIENT_NAME);
+        g_audio_system->playMusic(MUSIC_AMBIENT_NAME);
 
         sf::Time elapsedTime = clock.restart();
 
@@ -881,6 +1041,23 @@ public:
                     }
                 }
                 break;
+                case Config::Entity::Component::Type::ANIMATION:
+                {
+                    if (!componentDescription.animation.empty())
+                    {
+                        auto animationSettingList = g_config->getAnimationSettings();
+                        for (auto& animationSettings : animationSettingList)
+                        {
+                            if (animationSettings.name == componentDescription.animation)
+                            {
+                                entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = g_game->scene.animations.size();
+                                g_game->scene.animations.push_back(Animation(animationSettings));
+                                break;
+                            }
+                        }
+                    }
+                }
+                break;
                 }
             }
         }
@@ -890,7 +1067,7 @@ public:
 
 private:
     sf::RenderWindow window;
-    AudioSystem audioSystem;
+    //AudioSystem audioSystem;
     
     sf::Clock clock;
     KeySet pressedKeys;
@@ -905,6 +1082,25 @@ const float walkForce = 12.0f;
 const float jumpInpulse = 3.0f;
 const float maxVelocity = 5;
 
+Action BuildMoveAction(const std::string& entityName, const b2Vec2& vector)
+{
+    return [entityName, vector](bool pressed)
+    {
+        Entity& entity = g_game->scene.GetEntityRefByName(entityName);
+        b2Body& body = entity.GetRectangleBody();
+
+        if (pressed)
+        {
+            //body.ApplyForceToCenter(forceVector, true);
+            body.SetLinearVelocity(vector);
+        }
+        else
+        {
+            body.SetLinearVelocity({0, 0});
+        }
+    };
+}
+
 int main()
 {
     const std::string windowConfigPath = "config\\settings.xml";
@@ -912,14 +1108,25 @@ int main()
     Config::Window windowSettings = config.getWindowSettings();
     Game game(windowSettings);
 
+    g_game = &game;
+    g_config = &config;
+
+    g_audio_system = new AudioSystem();
+
     const float player_w = 1;
     const float player_h = 1;
     const float player_x = 3;
     const float player_y = 0;
 
-    Config::Spritesheet animationSettings = config.getAnimationSettings()[0];
 
-    Animation playerAnimation(animationSettings);
+    auto animationSettingList = config.getAnimationSettings();
+    for (auto& animationSettings : animationSettingList)
+    {
+        game.scene.animations.push_back(Animation(animationSettings));
+    }
+
+    //Config::Spritesheet animationSettings = config.getAnimationSettings()[0];
+    //Animation playerAnimation(animationSettings);
 
     {
         const std::size_t newEntityId = game.scene.CreateEntity();
@@ -953,16 +1160,21 @@ int main()
             body->ApplyForceToCenter({0, walkForce}, true);
         });
 
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = game.scene.animations.size();
-        game.scene.animations.push_back(playerAnimation);
+        //entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = game.scene.animations.size();
+        //game.scene.animations.push_back(playerAnimation);
+        entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = 0;
 
         entity.cameraFocus = true;
     }
+
+    config.initActions();
 
     std::vector<Config::Entity> entityDescriptions = config.getEntityDescriptions();
     game.ParseEntityDescriptions(entityDescriptions);
 
     game.blockingRun();
+
+    delete(g_audio_system);
 
     return 0;
 }
