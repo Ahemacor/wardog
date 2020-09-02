@@ -15,6 +15,111 @@
 #include <iostream>
 #include <optional>
 
+const char* KeyNames[] =
+{
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "Num0",
+    "Num1",
+    "Num2",
+    "Num3",
+    "Num4",
+    "Num5",
+    "Num6",
+    "Num7",
+    "Num8",
+    "Num9",
+    "Escape",
+    "LControl",
+    "LShift",
+    "LAlt",
+    "LSystem",
+    "RControl",
+    "RShift",
+    "RAlt",
+    "RSystem",
+    "Menu",
+    "LBracket",
+    "RBracket",
+    "Semicolon",
+    "Comma",
+    "Period",
+    "Quote",
+    "Slash",
+    "Backslash",
+    "Tilde",
+    "Equal",
+    "Hyphen",
+    "Space",
+    "Enter",
+    "Backspace",
+    "Tab",
+    "PageUp",
+    "PageDown",
+    "End",
+    "Home",
+    "Insert",
+    "Delete",
+    "Add",
+    "Subtract",
+    "Multiply",
+    "Divide",
+    "Left",
+    "Right",
+    "Up",
+    "Down",
+    "Numpad0",
+    "Numpad1",
+    "Numpad2",
+    "Numpad3",
+    "Numpad4",
+    "Numpad5",
+    "Numpad6",
+    "Numpad7",
+    "Numpad8",
+    "Numpad9",
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11",
+    "F12",
+    "F13",
+    "F14",
+    "F15",
+    "Pause"
+};
+
 constexpr float SCALE_FACTOR = 100.0f;
 sf::Vector2f cameraTranslation = { 0, 0 };
 inline constexpr float pixelToMeter(int pixels) { return pixels / SCALE_FACTOR; }
@@ -196,7 +301,6 @@ using Action = std::function<void(bool)>;
 using ActionList = std::vector<Action>;
 using KeySet = std::set<sf::Keyboard::Key>;
 using Task = std::function<void()>;
-using KeyBindings = std::map<sf::Keyboard::Key, Action>;
 using ControlActions = std::map<sf::Keyboard::Key, ActionList>;
 
 ControlActions g_controls;
@@ -228,6 +332,7 @@ public:
 
     static constexpr const char* XML_TAG_SPRITE_SHEET = "Spritesheet";
     static constexpr const char* XML_TAG_SPRITE_SHEET_TEXTURE = "texture";
+    static constexpr const char* XML_TAG_STRETCH_TEXTURE = "stretch";
     static constexpr const char* XML_TAG_SPRITE_SHEET_NAME = "name";
     static constexpr const char* XML_TAG_SPRITE_SHEET_X_OFFSET = "x_offset";
     static constexpr const char* XML_TAG_SPRITE_SHEET_Y_OFFSET = "y_offset";
@@ -280,7 +385,8 @@ public:
             {
                 BODY,
                 SHAPE,
-                ANIMATION
+                ANIMATION,
+                CAMERA
             };
             Type type;
 
@@ -343,6 +449,16 @@ public:
                 const std::string resourcePath = directory + PATH_DELIMITER + resourceName + "." + resourceExt;
 
                 g_resources[resourceName].load(type, resourceName, resourcePath);
+
+                if (type == Resource::Type::TEXTURE)
+                {
+                    bool stretchTexture = true;
+                    resourceElem->QueryBoolAttribute(Config::XML_TAG_STRETCH_TEXTURE, &stretchTexture);
+                    if (stretchTexture == false)
+                    {
+                        g_resources[resourceName].getTextureRef().setRepeated(true);
+                    }
+                }
             }
         }
     }
@@ -405,7 +521,6 @@ public:
         static constexpr const char* MOVE = "Move";
 
         static constexpr const char* CONTROLS = "Controls"; 
-        static constexpr const char* CONTROL_SPACE = "SPACE";
         static constexpr const char* ACTION = "action";
         static constexpr const char* NAME = "name";
         static constexpr const char* ENTITY = "entity";
@@ -452,7 +567,16 @@ public:
             {
                 const std::string controlName = controlElem->Value();
                 const std::string controlActionName = controlElem->Attribute(ACTION);
-                if (CONTROL_SPACE == controlName) g_controls[sf::Keyboard::Space] = g_actions[controlActionName];
+                int keyIndex = 0;
+                for (const char* keyName : KeyNames)
+                {
+                    if (controlName == keyName)
+                    {
+                        g_controls[static_cast<sf::Keyboard::Key>(keyIndex)] = g_actions[controlActionName];
+                    }
+                    ++keyIndex;
+                }
+
             }
         }
     }
@@ -464,6 +588,7 @@ public:
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_BODY = "Body";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_SHAPE = "Shape";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_ANIMAION = "Animation";
+        static constexpr const char* XML_TAG_ENTITY_COMPONENT_CAMERA = "Camera";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_TYPE = "type";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_TEXTURE = "texture";
         static constexpr const char* XML_TAG_ENTITY_COMPONENT_TYPE_STATIC = "static";
@@ -513,6 +638,10 @@ public:
                     {
                         componentInfo.animation = pAnimationName;
                     }
+                }
+                else if (componentName == XML_TAG_ENTITY_COMPONENT_CAMERA)
+                {
+                    componentInfo.type = Entity::Component::Type::CAMERA;
                 }
 
                 const char* pTexture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
@@ -620,7 +749,6 @@ struct Entity
 {
     enum class ComponentType
     {
-        BINDINGS,
         BODY,
         SHAPE,
         ANIMATION,
@@ -642,9 +770,6 @@ struct Entity
     {
         for (auto& component : components) component = -1;
     }
-
-    void AddBinding(sf::Keyboard::Key key, Action action);
-    KeyBindings& GetBindings();
 
     void AddRectangleShape(float width, float height, float xPos = 0, float yPos = 0);
     sf::RectangleShape& GetRectangleShape();
@@ -693,35 +818,10 @@ struct Scene
     std::vector<Entity> entities;
     std::vector<b2Body*> bodies;
     std::vector<sf::RectangleShape> shapes;
-    std::vector<KeyBindings> bindings;
     std::vector<Animation> animations;
-    std::vector<sf::Texture> textures;
 
     b2World world;
 };
-
-void Entity::AddBinding(sf::Keyboard::Key key, Action action)
-{
-    const int bindingIndex = GetComponentIndex(ComponentType::BINDINGS);
-    if (bindingIndex < 0)
-    {
-        KeyBindings newBindings;
-        newBindings[key] = action;
-        SetComonentIndex(ComponentType::BINDINGS, parentScene.bindings.size());
-        parentScene.bindings.push_back(newBindings);
-    }
-    else
-    {
-        KeyBindings& bindgings = parentScene.bindings[bindingIndex];
-        bindgings[key] = action;
-    }
-}
-
-KeyBindings& Entity::GetBindings()
-{
-    const int bindingIndex = GetComponentIndex(ComponentType::BINDINGS);
-    return parentScene.bindings[bindingIndex];
-}
 
 void Entity::AddRectangleShape(float width, float height, float xPos, float yPos)
 {
@@ -841,9 +941,26 @@ public:
         toExecList.clear();
         sprites.clear();
 
+        for (const auto& keyCode : releasedKeys)
+        {
+            auto find = g_controls.find(keyCode);
+            if (find != g_controls.cend())
+            {
+                for (auto& action : g_controls[keyCode]) action(false);
+            }
+        }
+
+        for (const auto& keyCode : pressedKeys)
+        {
+            auto find = g_controls.find(keyCode);
+            if (find != g_controls.cend())
+            {
+                for (auto& action : g_controls[keyCode]) action(true);
+            }
+        }
+
         for (auto& entity : scene.entities)
         {
-            const int bindingIndex = entity.components[static_cast<int>(Entity::ComponentType::BINDINGS)];
             const int bodyIndex = entity.components[static_cast<int>(Entity::ComponentType::BODY)];
             const int shapeIndex = entity.components[static_cast<int>(Entity::ComponentType::SHAPE)];
             const int animationIndex = entity.components[static_cast<int>(Entity::ComponentType::ANIMATION)];
@@ -863,44 +980,6 @@ public:
                 bodyPosition = { (float)meterToPixel(pBody->GetPosition().x), (float)meterToPixel(pBody->GetPosition().y) };
                 bodyAngle = radianToDegree(pBody->GetAngle());
                 bodyLinearVelocity = pBody->GetLinearVelocity();
-            }
-
-            if(bindingIndex >= 0)
-            {
-                auto& binds = scene.bindings[bindingIndex];
-                for (const auto& keyCode : releasedKeys)
-                {
-                    auto findBind = binds.find(keyCode);
-                    if (findBind != binds.cend())
-                    {
-                        auto& [bindKey, bindAction] = *findBind;
-                        Task task = [findBind]() {findBind->second(false); };
-                        toExecList.push_back(task);
-                    }
-
-                    auto find = g_controls.find(keyCode);
-                    if (find != g_controls.cend())
-                    {
-                        for (auto& action : g_controls[keyCode]) action(false);
-                    }
-                }
-
-                for (const auto& keyCode : pressedKeys)
-                {
-                    auto findBind = binds.find(keyCode);
-                    if (findBind != binds.cend())
-                    {
-                        auto& [bindKey, bindAction] = *findBind;
-                        Task task = [findBind]() {findBind->second(true); };
-                        toExecList.push_back(task);
-                    }
-
-                    auto find = g_controls.find(keyCode);
-                    if (find != g_controls.cend())
-                    {
-                        for (auto& action : g_controls[keyCode]) action(true);
-                    }
-                }
             }
 
             if(shapeIndex >= 0)
@@ -949,12 +1028,6 @@ public:
                     else
                     {
                         animation.setType(AnimationType::IDLE);
-                    }
-
-                    // NEED TO MOVE TO SOMEWHERE !!!
-                    if (animation.getType() == AnimationType::WALK)
-                    {
-                        g_audio_system->playSound(SOUND_STEP_NAME);
                     }
                 }
                 sf::Sprite sprite = animation.getSprite(elapsedTime);
@@ -1058,6 +1131,9 @@ public:
                     }
                 }
                 break;
+                case Config::Entity::Component::Type::CAMERA:
+                    entity.cameraFocus = true;
+                break;
                 }
             }
         }
@@ -1093,10 +1169,12 @@ Action BuildMoveAction(const std::string& entityName, const b2Vec2& vector)
         {
             //body.ApplyForceToCenter(forceVector, true);
             body.SetLinearVelocity(vector);
+            entity.cameraFocus = true;
         }
         else
         {
             body.SetLinearVelocity({0, 0});
+            entity.cameraFocus = false;
         }
     };
 }
@@ -1110,62 +1188,7 @@ int main()
 
     g_game = &game;
     g_config = &config;
-
     g_audio_system = new AudioSystem();
-
-    const float player_w = 1;
-    const float player_h = 1;
-    const float player_x = 3;
-    const float player_y = 0;
-
-
-    auto animationSettingList = config.getAnimationSettings();
-    for (auto& animationSettings : animationSettingList)
-    {
-        game.scene.animations.push_back(Animation(animationSettings));
-    }
-
-    //Config::Spritesheet animationSettings = config.getAnimationSettings()[0];
-    //Animation playerAnimation(animationSettings);
-
-    {
-        const std::size_t newEntityId = game.scene.CreateEntity();
-        Entity& entity = game.scene.GetEntityRef(newEntityId);
-
-        entity.AddRectangleBody(player_w, player_h, player_x, player_y, b2_dynamicBody);
-        b2Body* body = &entity.GetRectangleBody();
-        body->SetFixedRotation(true);
-
-        entity.AddBinding(sf::Keyboard::A, [body](bool pressed)
-        {
-            auto linearVelocity =  body->GetLinearVelocity();
-            body->ApplyForceToCenter({ -walkForce, 0 }, true);
-        });
-
-        entity.AddBinding(sf::Keyboard::D, [body](bool pressed)
-        {
-            auto linearVelocity = body->GetLinearVelocity();
-            body->ApplyForceToCenter({ walkForce, 0 }, true);
-        });
-
-        entity.AddBinding(sf::Keyboard::W, [&body](bool pressed)
-        {
-            auto linearVelocity = body->GetLinearVelocity();
-            body->ApplyForceToCenter({ 0, -walkForce }, true);
-        });
-
-        entity.AddBinding(sf::Keyboard::S, [&body](bool pressed)
-        {
-            auto linearVelocity = body->GetLinearVelocity();
-            body->ApplyForceToCenter({0, walkForce}, true);
-        });
-
-        //entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = game.scene.animations.size();
-        //game.scene.animations.push_back(playerAnimation);
-        entity.components[static_cast<std::size_t>(Entity::ComponentType::ANIMATION)] = 0;
-
-        entity.cameraFocus = true;
-    }
 
     config.initActions();
 

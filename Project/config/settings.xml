@@ -1,23 +1,34 @@
 <?xml version="1.0" ?>
 <Settings>
+	<!-- Настройки окна -->
     <GameWindow>
         <Window name="Test level" w="1280" h="720" />
     </GameWindow>
+	
+	<!-- ЗАГРУЗКА РЕСУРСОВ -->
+	<!-- Текстуры -->
 	<Resources type="Texture" directory="textures">
 		<Resource name="spritelist" ext="png"/>
 		<Resource name="player" ext="png"/>
-		<Resource name="test" ext="png"/>
-		<Resource name="box" ext="png"/>
+		<Resource name="test" ext="png" />
+		<Resource name="box" ext="png" stretch="false" />
 	</Resources>
+	
+	<!-- Звуковые эффекты -->
 	<Resources type="Sound" directory="audio">
 		<Resource name="step" ext="wav"/>
 		<Resource name="explosion" ext="wav"/>
 		<Resource name="music" ext="wav"/>
 	</Resources>
+	
+	<!-- Музыка -->
 	<Resources type="Music" directory="audio">
 		<Resource name="ambient" ext="wav"/>
 	</Resources>
-	<Spritesheet name="test animation" texture="player" x_offset="0" y_offset="0" width="66" height= "66" scale="2">
+	
+	<!-- ОПИСАНИЕ СПРАЙТОВЫХ АНИМАЦИЙ -->
+	<!-- Спрайтлист с анимациями игрока -->
+	<Spritesheet name="player animation" texture="player" x_offset="0" y_offset="0" width="66" height= "66" scale="2">
 		<Animation name="Idle" num_frames="1" frame_time_ms="100">
 			<Up row_index=3/>
 			<Down row_index=0/>
@@ -31,37 +42,69 @@
 			<Right row_index=2/>
 		</Animation>
     </Spritesheet>
+	
+	<!-- ОПИСАНИЕ ДЕЙСТВИЙ -->
+	<!-- Действия игрока -->
 	<Actions>
-		<MoveLeftTest> 
-			<Move entity="test box" x="1" y="0"/>
+		<MoveLeft> 
+			<Move entity="player" x="-1" y="0"/>
 			<Sound name="step" />
-		</MoveLeftTest>
+		</MoveLeft>
+		<MoveRight> 
+			<Move entity="player" x="1" y="0"/>
+			<Sound name="step" />
+		</MoveRight>
+		<MoveUp> 
+			<Move entity="player" x="0" y="-1"/>
+			<Sound name="step" />
+		</MoveUp>
+		<MoveDown> 
+			<Move entity="player" x="0" y="1"/>
+			<Sound name="step" />
+		</MoveDown>
 	</Actions>
+	<!-- УРПАВЛЕНИЕ: Привязка клавиш к действиям -->
 	<Controls>
-		<SPACE action="MoveLeftTest"/>
+		<Left action="MoveLeft"/>
+		<Right action="MoveRight"/>
+		<Up action="MoveUp"/>
+		<Down action="MoveDown"/>
 	</Controls>
+	
+	<!-- ИГРОВЫЕ ОБЪЕКТЫ -->
+    <!-- Игрок -->
+	<Entity name="player">
+		<Body type="dynamic" width="100" height="100" x="100" y="100" />	
+		<Animation name="player animation"/>
+		<Camera/>
+	</Entity>
+	
+	<!-- Квадрат с текстурой пола -->
 	<Entity name="ground"> 
 		<Shape width="1000" height="1000" x="500" y="0" texture="test" />
 	</Entity>
+	
+	<!-- Нижняя стена -->
 	<Entity name="bottom wall">
 		<Body type="static" width="1000" height="10" x="500" y="500" />	
-		<Shape type="static" width="1000" height="10" x="500" y="500" />
+		<Shape width="1000" height="10" />
 	</Entity>
+	
+	<!-- Верхняя стена -->
 	<Entity name="top wall">
 		<Body type="static" width="1000" height="10" x="500" y="-500" />	
-		<Shape type="static" width="1000" height="10" x="500" y="-500" />	
+		<Shape width="1000" height="10" />	
 	</Entity>
+	
+	<!-- Правая стена -->
 	<Entity name="right wall">
 		<Body type="static" width="10" height="1000" x="1000" y="0" />	
-		<Shape type="static" width="10" height="1000" x="1000" y="0" />	
+		<Shape width="10" height="1000" />	
 	</Entity>
+	
+	<!-- Левая стена -->
 	<Entity name="left wall">
 		<Body type="static" width="10" height="1000" x="0" y="0" />	
-		<Shape type="static" width="10" height="1000" x="0" y="0" />
-	</Entity>
-	<Entity name="test box">
-		<Body type="dynamic" width="100" height="100" x="100" y="100" />	
-		<Shape width="100" height="100" texture="box"/>
-		<Animation name="test animation"/>
+		<Shape width="10" height="1000" />
 	</Entity>
 </Settings>
