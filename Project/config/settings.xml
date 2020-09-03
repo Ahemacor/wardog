@@ -1,17 +1,17 @@
 <?xml version="1.0" ?>
 <Settings>
-	<!-- Настройки окна -->
-    <GameWindow>
-        <Window name="Test level" w="1280" h="720" />
-    </GameWindow>
-	
 	<!-- ЗАГРУЗКА РЕСУРСОВ -->
+	<!-- Изображения -->
+	<Resources type="Image" directory="textures">
+		<Resource name="icon" ext="png" />
+	</Resources>
+	
 	<!-- Текстуры -->
 	<Resources type="Texture" directory="textures">
 		<Resource name="spritelist" ext="png"/>
 		<Resource name="player" ext="png"/>
 		<Resource name="test" ext="png" />
-		<Resource name="box" ext="png" stretch="false" />
+		<Resource name="box" ext="png" />
 	</Resources>
 	
 	<!-- Звуковые эффекты -->
@@ -25,6 +25,16 @@
 	<Resources type="Music" directory="audio">
 		<Resource name="ambient" ext="wav"/>
 	</Resources>
+	
+	<!-- Шрифты -->
+	<Resources type="Font" directory="fonts">
+		<Resource name="pixel_font" ext="ttf"/>
+	</Resources>
+	
+    <!-- Настройки окна -->
+    <GameWindow>
+        <Window name="Test level" w="1280" h="720" vSynch="false" icon="icon" />
+    </GameWindow>
 	
 	<!-- ОПИСАНИЕ СПРАЙТОВЫХ АНИМАЦИЙ -->
 	<!-- Спрайтлист с анимациями игрока -->
@@ -65,10 +75,10 @@
 	</Actions>
 	<!-- УРПАВЛЕНИЕ: Привязка клавиш к действиям -->
 	<Controls>
-		<Left action="MoveLeft"/>
-		<Right action="MoveRight"/>
-		<Up action="MoveUp"/>
-		<Down action="MoveDown"/>
+		<A action="MoveLeft"/>
+		<D action="MoveRight"/>
+		<W action="MoveUp"/>
+		<S action="MoveDown"/>
 	</Controls>
 	
 	<!-- ИГРОВЫЕ ОБЪЕКТЫ -->

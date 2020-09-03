@@ -101,6 +101,7 @@
       <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y
 XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Debug\textures" /S /Y
 XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Debug\audio" /S /Y
+XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Debug\fonts" /S /Y
 XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
 </Command>
     </PostBuildEvent>
@@ -128,6 +129,7 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
       <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y
 XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Release\textures" /S /Y
 XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Release\audio" /S /Y
+XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Release\fonts" /S /Y
 XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S /Y
 </Command>
     </PostBuildEvent>
@@ -151,6 +153,7 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S 
       <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y
 XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Debug\textures" /S /Y
 XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Debug\audio" /S /Y
+XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Debug\fonts" /S /Y
 XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
 </Command>
     </PostBuildEvent>
@@ -178,6 +181,7 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
       <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y
 XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Release\textures" /S /Y
 XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Release\audio" /S /Y
+XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Release\fonts" /S /Y
 XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S /Y
 </Command>
     </PostBuildEvent>

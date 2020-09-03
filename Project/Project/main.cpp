@@ -8,6 +8,7 @@
 #include <vector>
 #include <array>
 #include <set>
+#include <deque>
 #include <functional>
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -159,9 +160,11 @@ struct Resource
 {
     enum class Type
     {
+        IMAGE,
         TEXTURE,
         SOUND,
-        MUSIC
+        MUSIC,
+        FONT
     };
 
     void load(Type resoureType, const std::string& resourceName, const std::string& path)
@@ -182,6 +185,14 @@ struct Resource
         case Resource::Type::MUSIC:
             value = new sf::Music;
             std::get<sf::Music*>(value)->openFromFile(path);
+            break;
+        case Resource::Type::FONT:
+            value = sf::Font();
+            std::get<sf::Font>(value).loadFromFile(path);
+            break;
+        case Resource::Type::IMAGE:
+            value = sf::Image();
+            std::get<sf::Image>(value).loadFromFile(path);
             break;
         default:
             break;
@@ -207,10 +218,20 @@ struct Resource
         return *std::get<sf::Music*>(value);
     }
 
+    sf::Font& getFontRef()
+    {
+        return std::get<sf::Font>(value);
+    }
+
+    sf::Image& getImageRef()
+    {
+        return std::get<sf::Image>(value);
+    }
+
 private:
     Type type;
     std::string name;
-    std::variant<sf::Texture, sf::SoundBuffer, sf::Music*> value;
+    std::variant<sf::Texture, sf::SoundBuffer, sf::Music*, sf::Font, sf::Image> value;
 };
 
 
@@ -290,12 +311,9 @@ private:
 
 AudioSystem* g_audio_system = nullptr;
 class Game;
+class Config;
+Config* g_config;
 Game* g_game = nullptr;
-
-enum class ActionType
-{
-    Sound
-};
 
 using Action = std::function<void(bool)>;
 using ActionList = std::vector<Action>;
@@ -322,8 +340,129 @@ Action BuildSoundAction(const std::string& soundName)
 
 Action BuildMoveAction(const std::string& entityName, const b2Vec2& vector);
 
-
 std::unordered_map<std::string, ActionList> g_actions;
+
+class UiManager : public sf::Drawable
+{
+public:
+    UiManager(float width, float height)
+    : win_width(width), win_height(height)
+    {}
+
+    void draw(sf::RenderTarget& target, sf::RenderStates states) const override
+    {
+        for (const auto& text : uiStaticText)
+        {
+            target.draw(text, states);
+        }
+
+        target.draw(fpsText, states);
+
+        for (const auto& logText : logQueueText)
+        {
+            target.draw(logText, states);
+        }
+    }
+
+    void AddStaticText(const std::wstring& textString)
+    {
+        const sf::Font& font = g_resources[fontName].getFontRef();
+        sf::Text textToDraw(textString.c_str(), font, charSize);
+        textToDraw.setPosition(staticTextPosition);
+        uiStaticText.push_back(std::move(textToDraw));
+    }
+
+    void calculateFps(const sf::Time& elapsedTime)
+    {
+        if (fpsText.getFont() == nullptr)
+        {
+            const sf::Font& font = g_resources[fontName].getFontRef();
+            fpsText.setFont(font);
+            fpsText.setCharacterSize(charSize);
+            fpsText.setPosition(fpsTextPosition);
+        }
+
+        static sf::Time lastUpdate;
+        if (lastUpdate + sf::seconds(1.0f) <= updateClock.getElapsedTime())
+        {
+            const int fpsNum = sf::seconds(1.0f) / elapsedTime;
+            fpsText.setString(std::wstring(L"FPS: ") + std::to_wstring(fpsNum)
+                             + L" Frame time: " + std::to_wstring(elapsedTime.asMicroseconds()));
+            lastUpdate = updateClock.getElapsedTime();
+        }
+    }
+
+    void updateLogs()
+    {
+        static sf::Time lastUpdate;
+        if (lastUpdate + sf::seconds(0.05f) <= updateClock.getElapsedTime())
+        {
+            for (sf::Text& logText : logQueueText)
+            {
+                sf::Color color = logText.getFillColor();
+                color.a--;
+                if (color.a > 0)
+                {
+                    logText.setFillColor(color);
+                }
+            }
+
+            lastUpdate = updateClock.getElapsedTime();
+        }
+    }
+
+    enum class LogType
+    {
+        INFO,
+        ERROR
+    };
+
+    void log(const std::string logString, LogType type = LogType::INFO)
+    {
+        log(std::wstring(logString.cbegin(), logString.cend()), type);
+    }
+
+    void log(const std::wstring logString, LogType type = LogType::INFO)
+    {
+        const sf::Font& font = g_resources[fontName].getFontRef();
+        sf::Text textToDraw(logString, font, charSize);
+        textToDraw.setPosition(logTextPosition.x, logTextPosition.y + (charSize * logQueueText.size()));
+        textToDraw.setFillColor((type == LogType::ERROR) ? sf::Color::Red : sf::Color::Green);
+        logQueueText.push_front(textToDraw);
+
+        if (logQueueText.size() > numLogLines)
+        {
+            logQueueText.pop_back();
+            for (sf::Text& logText : logQueueText)
+            {
+                logText.move(0, -charSize);
+            }
+        }
+    }
+
+private:
+    sf::Clock updateClock;
+
+    float win_width;
+    float win_height;
+    std::string fontName = "pixel_font";
+    int charSize = 30;
+
+    sf::Vector2f staticTextPosition = {win_width - 300, 30};
+    std::vector<sf::Text> uiStaticText;
+
+    sf::Vector2f fpsTextPosition = { win_width - 300, 0 };
+    sf::Text fpsText;
+
+    int numLogLines = (win_width/2) / charSize;
+    sf::Vector2f logTextPosition = { 10, 10 };
+    std::deque<sf::Text> logQueueText;
+};
+
+UiManager* g_ui_manager = nullptr;
+
+#define LOG_INFO(logText) (g_ui_manager->log((logText), UiManager::LogType::INFO))
+#define LOG_ERROR(logText) (g_ui_manager->log((logText), UiManager::LogType::ERROR))
 
 class Config
 {
@@ -352,6 +491,8 @@ public:
         int w = 400;
         int h = 400;
         std::string name = "Untitled";
+        bool vSynch = false;
+        std::string icon;
     };
 
     struct Spritesheet
@@ -420,8 +561,10 @@ public:
         static constexpr const char* XML_TAG_RESOURCES_TYPE = "type";
         static constexpr const char* XML_TAG_RESOURCES_DIRECTORY = "directory";
         static constexpr const char* XML_TAG_RESOURCE_TYPE_TEXTURE = "Texture";
+        static constexpr const char* XML_TAG_RESOURCE_TYPE_IMAGE = "Image";
         static constexpr const char* XML_TAG_RESOURCE_TYPE_SOUND = "Sound";
         static constexpr const char* XML_TAG_RESOURCE_TYPE_MUSIC = "Music";
+        static constexpr const char* XML_TAG_RESOURCE_TYPE_FONT = "Font";
         static constexpr const char* XML_TAG_RESOURCE = "Resource";
         static constexpr const char* XML_TAG_RESOURCE_NAME = "name";
         static constexpr const char* XML_TAG_RESOURCE_EXT = "ext";
@@ -439,7 +582,9 @@ public:
             if      (typeString == XML_TAG_RESOURCE_TYPE_TEXTURE) type = Resource::Type::TEXTURE;
             else if (typeString == XML_TAG_RESOURCE_TYPE_SOUND)   type = Resource::Type::SOUND;
             else if (typeString == XML_TAG_RESOURCE_TYPE_MUSIC)   type = Resource::Type::MUSIC;
-            else continue; //ERROR 
+            else if (typeString == XML_TAG_RESOURCE_TYPE_FONT)   type = Resource::Type::FONT;
+            else if (typeString == XML_TAG_RESOURCE_TYPE_IMAGE)   type = Resource::Type::IMAGE;
+            else continue;
 
             TiXmlElement* resourceElem = resouresElem->FirstChild(XML_TAG_RESOURCE)->ToElement();
             for (resourceElem; resourceElem != nullptr; resourceElem = resourceElem->NextSiblingElement())
@@ -470,6 +615,8 @@ public:
         windowSettings.name = pWindowNode->Attribute("name");
         pWindowNode->QueryIntAttribute("w", &windowSettings.w);
         pWindowNode->QueryIntAttribute("h", &windowSettings.h);
+        pWindowNode->QueryBoolAttribute("vSynch", &windowSettings.vSynch);
+        windowSettings.icon = pWindowNode->Attribute("icon");
         return windowSettings;
     }
 
@@ -562,11 +709,19 @@ public:
             const std::string controlsElemName = controlsElem->Value();
             if (controlsElemName != CONTROLS) continue;
 
+            std::wstring controlsInfoText(L"Управление:\n----------------------------\n");
+
             TiXmlElement* controlElem = controlsElem->FirstChild()->ToElement();
             for (controlElem; controlElem != nullptr; controlElem = controlElem->NextSiblingElement())
             {
                 const std::string controlName = controlElem->Value();
                 const std::string controlActionName = controlElem->Attribute(ACTION);
+
+                controlsInfoText += std::wstring(controlName.cbegin(), controlName.cend());
+                controlsInfoText += L" -> ";
+                controlsInfoText += std::wstring(controlActionName.cbegin(), controlActionName.cend());
+                controlsInfoText += L"\n";
+
                 int keyIndex = 0;
                 for (const char* keyName : KeyNames)
                 {
@@ -578,6 +733,8 @@ public:
                 }
 
             }
+
+            g_ui_manager->AddStaticText(controlsInfoText);
         }
     }
 
@@ -670,8 +827,6 @@ private:
     TiXmlElement* pElem;
     TiXmlHandle hRoot;
 };
-
-Config* g_config;
 
 class Animation
 {
@@ -891,7 +1046,20 @@ class Game
 public:
     Game(const Config::Window& windowSettings)
     : window(sf::VideoMode(windowSettings.w, windowSettings.h), windowSettings.name)
-    {}
+    {
+        window.setVerticalSyncEnabled(windowSettings.vSynch);
+        std::string windowTitle;
+        windowTitle += "[";
+        windowTitle += std::to_string(windowSettings.w);
+        windowTitle += ":";
+        windowTitle += std::to_string(windowSettings.h);
+        windowTitle += "] ";
+        windowTitle += (windowSettings.vSynch) ? " [v-Synch ON] " : " [v-Synch OFF] ";
+        windowTitle += windowSettings.name;
+        window.setTitle(windowTitle);
+        sf::Image& icon = g_resources[windowSettings.icon].getImageRef();
+        window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
+    }
 
     void processMessages()
     {
@@ -1043,9 +1211,11 @@ public:
         }
 
         releasedKeys.clear();
+
+        g_ui_manager->updateLogs();
     }
 
-    void renderFrame()
+    void renderFrame(const sf::Time& elapsedTime)
     {
         window.clear(sf::Color::Black);
 
@@ -1063,7 +1233,11 @@ public:
             sprite.move(cameraTranslation);
         }
 
+        window.draw(*g_ui_manager);
+
         window.display();
+
+        g_ui_manager->calculateFps(elapsedTime);
     }
 
     void blockingRun()
@@ -1077,7 +1251,7 @@ public:
             elapsedTime = clock.restart();
             processMessages();
             update(elapsedTime);
-            renderFrame();
+            renderFrame(elapsedTime);
         }
     }
 
@@ -1136,6 +1310,8 @@ public:
                 break;
                 }
             }
+
+            LOG_INFO(std::wstring(L"Создан объект: ") + std::wstring(entity.name.cbegin(), entity.name.cend()));
         }
     }
 
@@ -1189,13 +1365,17 @@ int main()
     g_game = &game;
     g_config = &config;
     g_audio_system = new AudioSystem();
+    g_ui_manager = new UiManager(windowSettings.w, windowSettings.h);
 
     config.initActions();
 
     std::vector<Config::Entity> entityDescriptions = config.getEntityDescriptions();
+
     game.ParseEntityDescriptions(entityDescriptions);
 
     game.blockingRun();
+
+    delete(g_ui_manager);
 
     delete(g_audio_system);
 
