@@ -86,7 +86,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SFML_STATIC</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SFML_STATIC;_USE_MATH_DEFINES</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)libs\SFML\include;$(SolutionDir)libs\tinyxml;$(SolutionDir)libs\box2d\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -98,11 +98,9 @@
       <AdditionalDependencies>box2d.lib;tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s-d.lib;ws2_32.lib;sfml-network-s-d.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s-d.lib;opengl32.lib;gdi32.lib;sfml-window-s-d.lib;freetype.lib;sfml-graphics-s-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y
-XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Debug\textures" /S /Y
-XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Debug\audio" /S /Y
-XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Debug\fonts" /S /Y
-XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
+      <Command>XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
+IF NOT EXIST "$(SolutionDir)x64\Debug\content" MKDIR "$(SolutionDir)x64\Debug\content"
+XCOPY "$(SolutionDir)content" "$(SolutionDir)x64\Debug\content" /S /Y
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -112,7 +110,7 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SFML_STATIC</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SFML_STATIC;_USE_MATH_DEFINES</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)libs\SFML\include;$(SolutionDir)libs\tinyxml;$(SolutionDir)libs\box2d\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -126,11 +124,9 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
       <AdditionalDependencies>box2d.lib;tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s.lib;ws2_32.lib;sfml-network-s.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s.lib;opengl32.lib;gdi32.lib;sfml-window-s.lib;freetype.lib;sfml-graphics-s.lib;sfml-main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y
-XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Release\textures" /S /Y
-XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Release\audio" /S /Y
-XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Release\fonts" /S /Y
-XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S /Y
+      <Command>XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S /Y
+IF NOT EXIST "$(SolutionDir)x64\Release\content" MKDIR "$(SolutionDir)x64\Release\content"
+XCOPY "$(SolutionDir)content" "$(SolutionDir)x64\Release\content" /S /Y
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -138,7 +134,7 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S 
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SFML_STATIC</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SFML_STATIC;_USE_MATH_DEFINES</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)libs\SFML\include;$(SolutionDir)libs\tinyxml;$(SolutionDir)libs\box2d\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -150,11 +146,9 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S 
       <AdditionalDependencies>box2d.lib;tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s-d.lib;ws2_32.lib;sfml-network-s-d.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s-d.lib;opengl32.lib;gdi32.lib;sfml-window-s-d.lib;freetype.lib;sfml-graphics-s-d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Debug\config" /S /Y
-XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Debug\textures" /S /Y
-XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Debug\audio" /S /Y
-XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Debug\fonts" /S /Y
-XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
+      <Command>XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
+IF NOT EXIST "$(SolutionDir)x64\Debug\content" MKDIR "$(SolutionDir)x64\Debug\content"
+XCOPY "$(SolutionDir)content" "$(SolutionDir)x64\Debug\content" /S /Y
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -164,7 +158,7 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SFML_STATIC</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SFML_STATIC;_USE_MATH_DEFINES</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)libs\SFML\include;$(SolutionDir)libs\tinyxml;$(SolutionDir)libs\box2d\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -178,16 +172,33 @@ XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Debug" /S /Y
       <AdditionalDependencies>box2d.lib;tinyxml.lib;tinyxmlSTL.lib;winmm.lib;sfml-system-s.lib;ws2_32.lib;sfml-network-s.lib;openal32.lib;flac.lib;vorbisenc.lib;vorbisfile.lib;vorbis.lib;ogg.lib;sfml-audio-s.lib;opengl32.lib;gdi32.lib;sfml-window-s.lib;freetype.lib;sfml-graphics-s.lib;sfml-main.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>XCOPY "$(SolutionDir)config" "$(SolutionDir)x64\Release\config" /S /Y
-XCOPY "$(SolutionDir)textures" "$(SolutionDir)x64\Release\textures" /S /Y
-XCOPY "$(SolutionDir)audio" "$(SolutionDir)x64\Release\audio" /S /Y
-XCOPY "$(SolutionDir)fonts" "$(SolutionDir)x64\Release\fonts" /S /Y
-XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S /Y
+      <Command>XCOPY "$(SolutionDir)libs\SFML\bin\openal32.dll" "$(SolutionDir)x64\Release" /S /Y
+IF NOT EXIST "$(SolutionDir)x64\Release\content" MKDIR "$(SolutionDir)x64\Release\content"
+XCOPY "$(SolutionDir)content" "$(SolutionDir)x64\Release\content" /S /Y
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Animation.cpp" />
+    <ClCompile Include="AudioSystem.cpp" />
+    <ClCompile Include="Config.cpp" />
+    <ClCompile Include="Entity.cpp" />
+    <ClCompile Include="Game.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Resource.cpp" />
+    <ClCompile Include="Scene.cpp" />
+    <ClCompile Include="UiManager.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Animation.h" />
+    <ClInclude Include="AudioSystem.h" />
+    <ClInclude Include="CommonDefinitions.h" />
+    <ClInclude Include="Config.h" />
+    <ClInclude Include="Entity.h" />
+    <ClInclude Include="Game.h" />
+    <ClInclude Include="Resource.h" />
+    <ClInclude Include="Scene.h" />
+    <ClInclude Include="UiManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
