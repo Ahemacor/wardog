@@ -1,8 +1,9 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
-#include "Config.h"
 #include <vector>
+
+struct Spritesheet;
 
 class Animation
 {
@@ -21,7 +22,7 @@ public:
         RIGHT
     };
 
-    Animation(const Config::Spritesheet& animationSettings);
+    Animation(const Spritesheet& spriteSheetDescr);
 
     sf::Sprite getSprite(Type type, Direction direction, sf::Time elapsedTime);
 
@@ -35,17 +36,36 @@ public:
     void setDirection(Direction direction) { this->direction = direction; }
     Direction getDirection() { direction; }
 
-    std::string getName() { return settings.name; }
+    std::string getName();
 
 private:
 
     int getColumnId(int msPerFrame, int numOfFrames, sf::Time elapsedTime);
-
-    Config::Spritesheet settings;
 
     sf::Sprite sprite;
     Type type = Type::IDLE;
     Direction direction = Direction::RIGHT;
 
     sf::Time time;
+};
+
+struct Spritesheet
+{
+    std::string name;
+    std::string texture;
+    int x_offset = 0;
+    int y_offset = 0;
+    int width = 0;
+    int height = 0;
+    int scale = 0;
+
+    struct Animation
+    {
+        std::string name;
+        int num_frames = 0;
+        int ms_per_frame = 0;
+        std::map<std::string, int> row_index;
+    };
+
+    std::map<std::string, Animation> animations;
 };

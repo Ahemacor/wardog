@@ -58,7 +58,26 @@ void AudioSystem::playMusic(const std::string& musicName, float volume, bool loo
 
     currentMusicName = musicName;
     sf::Music& music = MUSIC(currentMusicName);
-    music.setLoop(true);
-    music.setVolume(10.0f);
+    music.setLoop(loop);
+    music.setVolume(volume);
     music.play();
+}
+
+void AudioSystem::stopMusic()
+{
+    if (!currentMusicName.empty())
+    {
+        sf::Music& music = MUSIC(currentMusicName);
+        music.stop();
+    }
+}
+
+bool AudioSystem::isMusicPlaying()
+{
+    if (!currentMusicName.empty())
+    {
+        sf::Music& music = MUSIC(currentMusicName);
+        return music.getStatus() == sf::SoundSource::Status::Playing;
+    }
+    return false;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Scene.h"
+#include "Config.h"
 #include <SFML/Graphics.hpp>
 #include <vector>
 
@@ -22,20 +23,17 @@ public:
 
     void blockingRun();
 
-    void ParseEntityDescriptions(const std::vector<Config::Entity>& entityDescriptions);
-
     Scene scene;
 
 private:
     Game();
 
     sf::RenderWindow window;
-    sf::Vector2f cameraTranslation = { 0, 0 };
+    sf::View gameView;
+    sf::FloatRect gameViewport = { 0.0f, 0.0f, 1.0f, 1.0f };
+    sf::Transformable cameraTransform;
 
     sf::Clock clock;
     KeySet pressedKeys;
     KeySet releasedKeys;
-    std::vector<sf::Shape*> toDrawList;
-    std::vector<Task> toExecList;
-    std::vector<sf::Sprite> sprites;
 };

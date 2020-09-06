@@ -1,41 +1,40 @@
 #pragma once
 
+#include "Animation.h"
 #include <SFML/Graphics.hpp>
 #include <string>
 #include <array>
+#include <variant>
+#include <optional>
 #include <box2d/box2d.h>
 
-struct Scene;
-struct Entity
+struct Entity_
 {
-    enum class ComponentType
-    {
-        BODY,
-        SHAPE,
-        SPRITE,
-        ANIMATION,
+    std::string name;
+    sf::Transformable transformation;
+    b2Vec2 velocity;
 
-        COUNT
+    struct Component
+    {
+        enum class Type
+        {
+            BODY,
+            SHAPE,
+            SPRITE,
+            ANIMATION,
+            CAMERA
+        };
+
+        Component() = default;
+        Component(const Component&) = default;
+        Component& operator=(const Component&) = default;
+
+        Type type;
+        std::variant<b2Body*, sf::RectangleShape, sf::Sprite, Animation, sf::View> var;
+        sf::Transformable transformation;
     };
 
-    Entity(Scene& scene);
+    Component* getComponent(Component::Type componentType);
 
-    void AddRectangleShape(float width, float height, float xPos = 0, float yPos = 0);
-    sf::RectangleShape& GetRectangleShape();
-
-    void AddRectangleBody(float width, float height, float xPos = 0, float yPos = 0, b2BodyType type = b2_staticBody);
-    b2Body& GetRectangleBody();
-
-    void AddSprite(float width, float height, float xPos = 0, float yPos = 0, const std::string& texture = "");
-    sf::Sprite& GetSprite();
-
-    std::array <int, static_cast<std::size_t>(ComponentType::COUNT)> components;
-    Scene& parentScene;
-    bool cameraFocus = false;
-    std::string name;
-
-private:
-    int GetComponentIndex(ComponentType type);
-    void SetComonentIndex(ComponentType type, int index);
-
+    std::vector<Component> components;
 };

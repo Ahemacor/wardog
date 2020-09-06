@@ -6,7 +6,9 @@ int main()
 
     BUILD_ACTIONS_FROM_CONFIG();
 
-    GAME_LOAD_MAP();
+    const std::string& levelName = CONFIG.getStartLevelName();
+
+    CONFIG.loadLevel(levelName);
 
     GAME_START();
 

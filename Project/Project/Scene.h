@@ -2,6 +2,7 @@
 #include <box2d/box2d.h>
 #include <vector>
 #include "Animation.h"
+#include "Entity.h"
 
 struct Entity;
 
@@ -9,19 +10,9 @@ struct Scene
 {
     Scene();
 
-    std::size_t AddEntity(Entity&& entity);
+    Entity_& getEntity(const std::string& entityName);
 
-    std::size_t CreateEntity();
-
-    Entity& GetEntityRef(std::size_t entityId);
-
-    Entity& GetEntityRefByName(const std::string& entityName);
-
-    std::vector<Entity> entities;
-    std::vector<b2Body*> bodies;
-    std::vector<sf::RectangleShape> shapes;
-    std::vector<sf::Sprite> sprites;
-    std::vector<Animation> animations;
+    std::vector<Entity_> sceneGraph;
 
     b2World world;
 };

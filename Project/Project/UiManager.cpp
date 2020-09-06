@@ -56,8 +56,9 @@ void UiManager::calculateFps(const sf::Time& elapsedTime)
 void UiManager::updateLogs()
 {
     static sf::Time lastUpdate;
-    if (lastUpdate + sf::seconds(0.05f) <= updateClock.getElapsedTime())
+    if (lastUpdate + sf::seconds(0.1f) <= updateClock.getElapsedTime())
     {
+        int numExpired = 0;
         for (sf::Text& logText : logQueueText)
         {
             sf::Color color = logText.getFillColor();
@@ -66,6 +67,20 @@ void UiManager::updateLogs()
             {
                 logText.setFillColor(color);
             }
+            else
+            {
+                ++numExpired;
+            }
+        }
+
+        while (numExpired > 0)
+        {
+            logQueueText.pop_back();
+            for (sf::Text& logText : logQueueText)
+            {
+                logText.move(0, -charSize);
+            }
+            --numExpired;
         }
 
         lastUpdate = updateClock.getElapsedTime();

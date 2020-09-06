@@ -1,6 +1,8 @@
 #include "Animation.h"
 #include "CommonDefinitions.h"
 
+Spritesheet settings;
+
 static constexpr const char* AnimationNames[] =
 {
     "Idle",
@@ -15,9 +17,9 @@ static constexpr const char* DirectionNames[] =
     "Right"
 };
 
-Animation::Animation(const Config::Spritesheet& animationSettings)
+Animation::Animation(const Spritesheet& spriteSheetDescr)
 {
-    settings = animationSettings;
+    settings = spriteSheetDescr;
     sprite.setOrigin(settings.width / 2.0f, settings.height / 2.0f);
     sprite.setScale((float)settings.scale, (float)settings.scale);
     sprite.setTexture(TEXTURE(settings.texture));
@@ -60,4 +62,9 @@ int Animation::getColumnId(int msPerFrame, int numOfFrames, sf::Time elapsedTime
     sf::Time fullAnimDuration = sf::milliseconds(msPerFrame * numOfFrames);
     if (time > fullAnimDuration) time %= fullAnimDuration;
     return time.asMilliseconds() / msPerFrame;
+}
+
+std::string Animation::getName() 
+{ 
+    return settings.name;
 }

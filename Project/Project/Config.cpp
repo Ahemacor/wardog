@@ -5,108 +5,20 @@ ControlActions g_controls;
 
 std::unordered_map<std::string, ActionList> g_actions;
 
+std::unordered_map<std::string, Spritesheet> spriteSheetDescriptions;
+
 const char* KeyNames[] =
 {
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
-    "I",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-    "Q",
-    "R",
-    "S",
-    "T",
-    "U",
-    "V",
-    "W",
-    "X",
-    "Y",
-    "Z",
-    "Num0",
-    "Num1",
-    "Num2",
-    "Num3",
-    "Num4",
-    "Num5",
-    "Num6",
-    "Num7",
-    "Num8",
-    "Num9",
-    "Escape",
-    "LControl",
-    "LShift",
-    "LAlt",
-    "LSystem",
-    "RControl",
-    "RShift",
-    "RAlt",
-    "RSystem",
-    "Menu",
-    "LBracket",
-    "RBracket",
-    "Semicolon",
-    "Comma",
-    "Period",
-    "Quote",
-    "Slash",
-    "Backslash",
-    "Tilde",
-    "Equal",
-    "Hyphen",
-    "Space",
-    "Enter",
-    "Backspace",
-    "Tab",
-    "PageUp",
-    "PageDown",
-    "End",
-    "Home",
-    "Insert",
-    "Delete",
-    "Add",
-    "Subtract",
-    "Multiply",
-    "Divide",
-    "Left",
-    "Right",
-    "Up",
-    "Down",
-    "Numpad0",
-    "Numpad1",
-    "Numpad2",
-    "Numpad3",
-    "Numpad4",
-    "Numpad5",
-    "Numpad6",
-    "Numpad7",
-    "Numpad8",
-    "Numpad9",
-    "F1",
-    "F2",
-    "F3",
-    "F4",
-    "F5",
-    "F6",
-    "F7",
-    "F8",
-    "F9",
-    "F10",
-    "F11",
-    "F12",
-    "F13",
-    "F14",
-    "F15",
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", // A-Z
+    "Num0", "Num1", "Num2", "Num3", "Num4", "Num5", "Num6", "Num7", "Num8", "Num9",
+    "Escape", "LControl", "LShift", "LAlt", "LSystem", "RControl", "RShift", "RAlt", "RSystem", "Menu",
+    "LBracket", "RBracket", "Semicolon", "Comma", "Period", "Quote", "Slash", "Backslash", "Tilde", "Equal", "Hyphen", // ();,.'/\`=-
+    "Space", "Enter", "Backspace", "Tab",
+    "PageUp", "PageDown", "End", "Home", "Insert",
+    "Delete", "Add", "Subtract", "Multiply", "Divide",
+    "Left", "Right", "Up", "Down", // arrows
+    "Numpad0", "Numpad1", "Numpad2", "Numpad3", "Numpad4", "Numpad5", "Numpad6", "Numpad7", "Numpad8", "Numpad9",
+    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "F13", "F14", "F15", 
     "Pause"
 };
 
@@ -129,18 +41,17 @@ Action BuildMoveAction(const std::string& entityName, const b2Vec2& vector)
 {
     return [entityName, vector](bool pressed)
     {
-        Entity& entity = GAME_INSTANCE.scene.GetEntityRefByName(entityName);
-        b2Body& body = entity.GetRectangleBody();
+        Entity_& entity = GAME_INSTANCE.scene.getEntity(entityName);
+        auto* pComponent = entity.getComponent(Entity_::Component::Type::BODY);
+        b2Body& body = *std::get<b2Body*>(pComponent->var);
 
         if (pressed)
         {
             body.SetLinearVelocity(vector);
-            entity.cameraFocus = true;
         }
         else
         {
             body.SetLinearVelocity({ 0, 0 });
-            entity.cameraFocus = false;
         }
     };
 }
@@ -149,7 +60,6 @@ static constexpr const char* PATH_DELIMITER = "\\";
 
 static constexpr const char* XML_TAG_SPRITE_SHEET = "Spritesheet";
 static constexpr const char* XML_TAG_SPRITE_SHEET_TEXTURE = "texture";
-static constexpr const char* XML_TAG_STRETCH_TEXTURE = "stretch";
 static constexpr const char* XML_TAG_SPRITE_SHEET_NAME = "name";
 static constexpr const char* XML_TAG_SPRITE_SHEET_X_OFFSET = "x_offset";
 static constexpr const char* XML_TAG_SPRITE_SHEET_Y_OFFSET = "y_offset";
@@ -179,10 +89,10 @@ Config::Config(const std::string& filepath)
     doc.LoadFile();
     pElem = hDoc.FirstChildElement().Element();
     hRoot = TiXmlHandle(pElem);
-    LoadResoures();
+    LoadResoures(hRoot);
 }
 
-void Config::LoadResoures()
+void Config::LoadResoures(TiXmlHandle rootHandle)
 {
     static constexpr const char* XML_TAG_RESOURCES = "Resources";
     static constexpr const char* XML_TAG_RESOURCES_TYPE = "type";
@@ -196,7 +106,7 @@ void Config::LoadResoures()
     static constexpr const char* XML_TAG_RESOURCE_NAME = "name";
     static constexpr const char* XML_TAG_RESOURCE_EXT = "ext";
 
-    TiXmlElement* resouresElem = hRoot.FirstChild(XML_TAG_RESOURCES).Element();
+    TiXmlElement* resouresElem = rootHandle.FirstChild(XML_TAG_RESOURCES).Element();
     for (resouresElem; resouresElem != nullptr; resouresElem = resouresElem->NextSiblingElement())
     {
         const std::string elemName = resouresElem->Value();
@@ -224,12 +134,9 @@ void Config::LoadResoures()
 
             if (type == Resource::Type::TEXTURE)
             {
-                bool stretchTexture = true;
-                resourceElem->QueryBoolAttribute(XML_TAG_STRETCH_TEXTURE, &stretchTexture);
-                if (stretchTexture == false)
-                {
-                    TEXTURE(resourceName).setRepeated(true);
-                }
+                bool tile = true;
+                resourceElem->QueryBoolAttribute("tile", &tile);
+                if (tile) TEXTURE(resourceName).setRepeated(true);
             }
         }
     }
@@ -247,17 +154,15 @@ Config::Window Config::getWindowSettings()
     return windowSettings;
 }
 
-std::vector<Config::Spritesheet> Config::getAnimationSettings()
+void Config::loadAnimationSettings(TiXmlHandle rootHandle)
 {
-    std::vector<Spritesheet> spriteSheets;
-
-    TiXmlElement* spriteSheetElem = hRoot.FirstChild(XML_TAG_SPRITE_SHEET).Element();
+    TiXmlElement* spriteSheetElem = rootHandle.FirstChild(XML_TAG_SPRITE_SHEET).Element();
     for (spriteSheetElem; spriteSheetElem != nullptr; spriteSheetElem = spriteSheetElem->NextSiblingElement())
     {
         const std::string elemName = spriteSheetElem->Value();
         if (elemName != XML_TAG_SPRITE_SHEET) continue;
 
-        Config::Spritesheet spriteSheetInfo;
+        Spritesheet spriteSheetInfo;
         spriteSheetInfo.texture = spriteSheetElem->Attribute(XML_TAG_SPRITE_SHEET_TEXTURE);
         spriteSheetInfo.name = spriteSheetElem->Attribute(XML_TAG_SPRITE_SHEET_NAME);
         spriteSheetElem->QueryIntAttribute(XML_TAG_SPRITE_SHEET_X_OFFSET, &spriteSheetInfo.x_offset);
@@ -269,7 +174,7 @@ std::vector<Config::Spritesheet> Config::getAnimationSettings()
         TiXmlElement* animationElem = spriteSheetElem->FirstChild(XML_TAG_SPRITE_SHEET_ANIMATION)->ToElement();
         for (animationElem; animationElem != nullptr; animationElem = animationElem->NextSiblingElement())
         {
-            Config::Spritesheet::Animation animationInfo;
+            Spritesheet::Animation animationInfo;
             animationInfo.name = animationElem->Attribute(XML_TAG_SPRITE_SHEET_ANIMATION_NAME);
             animationElem->QueryIntAttribute(XML_TAG_SPRITE_SHEET_ANIMATION_FRAMES, &animationInfo.num_frames);
             animationElem->QueryIntAttribute(XML_TAG_SPRITE_SHEET_ANIMATION_TIME, &animationInfo.ms_per_frame);
@@ -282,10 +187,8 @@ std::vector<Config::Spritesheet> Config::getAnimationSettings()
             spriteSheetInfo.animations[animationInfo.name] = animationInfo;
         }
 
-        spriteSheets.push_back(std::move(spriteSheetInfo));
+        spriteSheetDescriptions[spriteSheetInfo.name] = spriteSheetInfo;
     }
-
-    return spriteSheets;
 }
 
 void Config::initActions()
@@ -365,10 +268,8 @@ void Config::initActions()
     }
 }
 
-std::vector<Config::Entity> Config::getEntityDescriptions()
+Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
 {
-    static constexpr const char* XML_TAG_ENTITY = "Entity";
-    static constexpr const char* XML_TAG_ENTITY_NAME = "name";
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_BODY = "Body";
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_SHAPE = "Shape";
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_SPRITE = "Sprite";
@@ -383,72 +284,179 @@ std::vector<Config::Entity> Config::getEntityDescriptions()
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_X = "x";
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_Y = "y";
 
-    std::vector<Entity> entities;
-    TiXmlElement* entityElem = hRoot.FirstChild(XML_TAG_ENTITY).Element();
+    float width, height, x, y;
+    componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_WIDTH, &width);
+    componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_HEIGHT, &height);
+    componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_X, &x);
+    componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_Y, &y);
+
+    const char* pTexture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
+    std::string textureName = (pTexture != nullptr) ? pTexture : "";
+
+    Entity_::Component component;
+    component.transformation.setPosition(x, y);
+
+    const std::string componentName = componentElem->Value();
+    if (componentName == XML_TAG_ENTITY_COMPONENT_BODY)
+    {
+        component.type = Entity_::Component::Type::BODY;
+        const std::string componentTypeString = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TYPE);
+        const b2BodyType bodyType = (componentTypeString == XML_TAG_ENTITY_COMPONENT_TYPE_DYNAMIC) ? b2_dynamicBody : b2_staticBody;
+
+        b2BodyDef bodyDef;
+        bodyDef.type = bodyType;
+        bodyDef.position.Set(pixelToMeter(x), pixelToMeter(y));
+        bodyDef.angularDamping = 15.0f;
+        bodyDef.linearDamping = 10.0f;
+        b2Body* body = GAME_INSTANCE.scene.world.CreateBody(&bodyDef);
+
+        b2PolygonShape boxShape;
+        boxShape.SetAsBox(pixelToMeter(width) / 2, pixelToMeter(height) / 2);
+
+        b2FixtureDef fixture;
+        fixture.shape = &boxShape;
+        fixture.density = 1.0f;
+        fixture.friction = 0.8f;
+        body->CreateFixture(&fixture);
+        body->SetFixedRotation(true);
+        component.var = body;
+    }
+    else if (componentName == XML_TAG_ENTITY_COMPONENT_SHAPE)
+    {
+        component.type = Entity_::Component::Type::SHAPE;
+        component.var = sf::RectangleShape({ width, height });
+        sf::RectangleShape& rect = std::get<sf::RectangleShape>(component.var);
+        rect.setOrigin(width / 2, height / 2);
+        if (!textureName.empty())
+        {
+            rect.setTexture(&TEXTURE(textureName));
+        }
+    }
+    else if (componentName == XML_TAG_ENTITY_COMPONENT_SPRITE)
+    {
+        component.type = Entity_::Component::Type::SPRITE;
+        const sf::IntRect intRect({0, 0}, { (int)width, (int)height });
+        component.var = sf::Sprite(TEXTURE(textureName));
+        sf::Sprite& sprite = std::get<sf::Sprite>(component.var);
+        sprite.setTextureRect(intRect);
+        sprite.setOrigin(width / 2, height / 2);
+        sprite.setPosition(x, y);
+    }
+    else if (componentName == XML_TAG_ENTITY_COMPONENT_ANIMAION)
+    {
+        component.type = Entity_::Component::Type::ANIMATION;
+        const char* pAnimationName = componentElem->Attribute("name");
+        if (pAnimationName != nullptr)
+        {
+            component.var = Animation(spriteSheetDescriptions[pAnimationName]);
+        }
+    }
+    else if (componentName == XML_TAG_ENTITY_COMPONENT_CAMERA)
+    {
+        component.type = Entity_::Component::Type::CAMERA;
+        component.var = sf::View({ x, y }, { width, height });
+    }
+
+    return component;
+}
+
+Entity_ Config::loadEntity(TiXmlElement* entityElem)
+{
+    static constexpr const char* XML_TAG_ENTITY_NAME = "name";
+
+    Entity_ entity;
+    entity.name = entityElem->Attribute(XML_TAG_ENTITY_NAME);
+
+    LOG_INFO(std::string("entity: ") + entity.name);
+
+    TiXmlElement* componentElem = entityElem->FirstChild()->ToElement();
+    for (componentElem; componentElem != nullptr; componentElem = componentElem->NextSiblingElement())
+    {
+        Entity_::Component component = loadComponent(componentElem);
+        entity.components.push_back(component);
+    }
+
+    return entity;
+}
+
+void Config::loadEntities(TiXmlHandle rootHandle)
+{
+    auto sceneHandle = rootHandle.FirstChild("Scene");
+    TiXmlElement* entityElem = sceneHandle.FirstChild("Entity").Element();
+    const std::string entElemName = entityElem->Value();
     for (entityElem; entityElem != nullptr; entityElem = entityElem->NextSiblingElement())
     {
         const std::string elemName = entityElem->Value();
-        if (elemName != XML_TAG_ENTITY) continue;
-
-        Entity entityInfo;
-        entityInfo.name = entityElem->Attribute(XML_TAG_ENTITY_NAME);
-
-        TiXmlElement* componentElem = entityElem->FirstChild()->ToElement();
-        for (componentElem; componentElem != nullptr; componentElem = componentElem->NextSiblingElement())
+        if (elemName == "Entity")
         {
-            Entity::Component componentInfo;
-            std::string componentName = componentElem->Value();
-            if (componentName == XML_TAG_ENTITY_COMPONENT_BODY)
-            {
-                componentInfo.type = Entity::Component::Type::BODY;
-                std::string componentTypeString = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TYPE);
-                if (componentTypeString == XML_TAG_ENTITY_COMPONENT_TYPE_STATIC)
-                {
-                    componentInfo.bodyType = b2_staticBody;
-                }
-                else if (componentTypeString == XML_TAG_ENTITY_COMPONENT_TYPE_DYNAMIC)
-                {
-                    componentInfo.bodyType = b2_dynamicBody;
-                }
-            }
-            else if (componentName == XML_TAG_ENTITY_COMPONENT_SHAPE)
-            {
-                componentInfo.type = Entity::Component::Type::SHAPE;
-            }
-            else if (componentName == XML_TAG_ENTITY_COMPONENT_ANIMAION)
-            {
-                componentInfo.type = Entity::Component::Type::ANIMATION;
-                const char* pAnimationName = componentElem->Attribute("name");
-                if (pAnimationName != nullptr)
-                {
-                    componentInfo.animation = pAnimationName;
-                }
-            }
-            else if (componentName == XML_TAG_ENTITY_COMPONENT_CAMERA)
-            {
-                componentInfo.type = Entity::Component::Type::CAMERA;
-            }
-            else if (componentName == XML_TAG_ENTITY_COMPONENT_SPRITE)
-            {
-                componentInfo.type = Entity::Component::Type::SPRITE;
-            }
+            Entity_ entity = loadEntity(entityElem);
+            GAME_INSTANCE.scene.sceneGraph.push_back(entity);
+        }
+    }
+}
 
-            const char* pTexture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
-            if (pTexture != nullptr)
-            {
-                componentInfo.texture = pTexture;
-            }
+std::vector<std::string> Config::readLevelList()
+{
+    std::vector<std::string> levels;
 
-            componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_WIDTH, &componentInfo.width);
-            componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_HEIGHT, &componentInfo.height);
-            componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_X, &componentInfo.x);
-            componentElem->QueryFloatAttribute(XML_TAG_ENTITY_COMPONENT_Y, &componentInfo.y);
-
-            entityInfo.components.push_back(componentInfo);
+    TiXmlElement* levelsElem = hRoot.FirstChild("Levels").Element();
+    const std::string directory = levelsElem->Attribute("directory");
+    levelDir = directory;
+    for (TiXmlElement* levelElem = levelsElem->FirstChild()->ToElement();
+        levelElem != nullptr;
+        levelElem = levelElem->NextSiblingElement())
+    {
+        const std::string elemName = levelElem->Value();
+        const std::string levelName = levelElem->Attribute("name");
+        if (elemName == "StartLevel")
+        {
+            startLevel = levelName;
         }
 
-        entities.push_back(entityInfo);
+        levels.push_back(levelName);
     }
 
-    return entities;
+    return levels;
+}
+
+std::string Config::getStartLevelName()
+{
+    readLevelList();
+    return startLevel;
+}
+
+void Config::loadLevel(const std::string& levelName)
+{
+    LOG_INFO(std::string("level: ") + levelName);
+    readLevelList();
+    const std::string levelPath = levelDir + "\\" + levelName + ".xml";
+    TiXmlDocument levelDoc(levelPath.c_str());
+    TiXmlHandle hLevelDoc(&levelDoc);
+
+    levelDoc.LoadFile();
+    TiXmlElement* pLevelElem = hLevelDoc.FirstChildElement().Element();
+    const std::string levelRootName = pLevelElem->Value();
+    TiXmlHandle hLevelRoot = TiXmlHandle(pLevelElem);
+    LoadResoures(hLevelRoot);
+    loadAnimationSettings(hLevelRoot);
+    loadPlaylist(hLevelRoot);
+    loadEntities(hLevelRoot);
+
+    currentLevel = levelName;
+}
+
+void Config::loadPlaylist(TiXmlHandle rootHandle)
+{
+    musicPlaylist.clear();
+    auto sceneHandle = rootHandle.FirstChild("Playlist");
+    TiXmlElement* playlistElem = sceneHandle.FirstChild("Music").Element();
+    for (playlistElem; playlistElem != nullptr; playlistElem = playlistElem->NextSiblingElement())
+    {
+        const std::string playlistElemName = playlistElem->Value();
+        if (playlistElemName == "Music")
+        {
+            const std::string musicName = playlistElem->Attribute("name");
+            musicPlaylist.push_back(musicName);
+        }
+    }
 }

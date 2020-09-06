@@ -23,12 +23,15 @@ public:
 
     void playSound(const std::string& soundName);
     void stopSound(const std::string& soundName);
-    void playMusic(const std::string& musicName, float volume = 10, bool loop = true);
+
+    void playMusic(const std::string& musicName, float volume = 5, bool loop = false);
+    void stopMusic();
+    bool isMusicPlaying();
+    std::string getCurrentMusic() { return currentMusicName; }
 
 private:
     AudioSystem() = default;
 
-    AudioSystem* instance;
     std::array<Player, 10> players;
     std::string currentMusicName;
 };
