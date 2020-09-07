@@ -29,11 +29,6 @@ private:
     Game();
 
     sf::RenderWindow window;
-    sf::View gameView;
-    sf::FloatRect gameViewport = { 0.0f, 0.0f, 1.0f, 1.0f };
-    sf::Transformable cameraTransform;
 
     sf::Clock clock;
-    KeySet pressedKeys;
-    KeySet releasedKeys;
 };

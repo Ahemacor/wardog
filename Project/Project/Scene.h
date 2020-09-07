@@ -1,18 +1,26 @@
 #pragma once
+
+#include "Entity.h"
 #include <box2d/box2d.h>
 #include <vector>
-#include "Animation.h"
-#include "Entity.h"
 
 struct Entity;
 
-struct Scene
+struct Scene : public sf::Drawable, public sf::Transformable
 {
-    Scene();
+    Entity_* getEntity(const std::string& entityName);
 
-    Entity_& getEntity(const std::string& entityName);
+    void update(const sf::Time& elapsedTime);
+
+    void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 
     std::vector<Entity_> sceneGraph;
 
-    b2World world;
+    sf::View view;
+    sf::FloatRect viewport = { 0.0f, 0.0f, 1.0f, 1.0f };
+    sf::Transform cameraTransform;
+
+    std::vector<std::string> playlist;
+
+    b2World world = b2Vec2(0.0f, 0.0f);
 };

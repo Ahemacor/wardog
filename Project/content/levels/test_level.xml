@@ -59,35 +59,36 @@
 			<Body type="dynamic" width="100" height="100" x="200" y="200" />	
 			<Animation name="player animation"/>
 			<Camera x="0" y="0" width="1280" height="720"/>
+			<Controller name="player_controller" />
 		</Entity>
 		
 		<!-- Нижняя стена -->
 		<Entity name="bottom wall">
 			<Body type="static" width="1100" height="100" x="500" y="500" />	
-			<Sprite width="1100" height="100" texture="wall" />
+			<Sprite width="1100" height="100" x="0" y="0" texture="wall" />
 		</Entity>
 		
 		<!-- Верхняя стена -->
 		<Entity name="top wall">
 			<Body type="static" width="1100" height="100" x="500" y="-500" />	
-			<Sprite width="1100" height="100" texture="wall" />	
+			<Sprite width="1100" height="100" x="0" y="0" texture="wall" />	
 		</Entity>
 		
 		<!-- Правая стена -->
 		<Entity name="right wall">
 			<Body type="static" width="100" height="1100" x="1000" y="0" />	
-			<Sprite width="100" height="1100" texture="wall" />	
+			<Sprite width="100" height="1100" x="0" y="0" texture="wall" />	
 		</Entity>
 		
 		<!-- Левая стена -->
 		<Entity name="left wall">
 			<Body type="static" width="100" height="1100" x="0" y="0" />	
-			<Sprite width="100" height="1100" texture="wall" />
+			<Sprite width="100" height="1100" x="0" y="0" texture="wall" />
 		</Entity>
 		
 		<Entity name="test box">
 			<Body type="dynamic" width="100" height="100" x="400" y="400" />	
-			<Shape width="100" height="100" texture="box" />
+			<Shape width="100" height="100" x="0" y="0" texture="box" />
 		</Entity>
 	</Scene>
 </Level>

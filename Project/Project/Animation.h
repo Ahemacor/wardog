@@ -1,11 +1,12 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <box2d/box2d.h>
 #include <vector>
 
 struct Spritesheet;
 
-class Animation
+class Animation : public sf::Drawable
 {
 public:
     enum class Type
@@ -24,9 +25,9 @@ public:
 
     Animation(const Spritesheet& spriteSheetDescr);
 
-    sf::Sprite getSprite(Type type, Direction direction, sf::Time elapsedTime);
+    void update(b2Vec2 velocity);
 
-    sf::Sprite getSprite(sf::Time elapsedTime);
+    void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 
     void setPosition(float xpos, float ypos);
 
@@ -40,13 +41,14 @@ public:
 
 private:
 
-    int getColumnId(int msPerFrame, int numOfFrames, sf::Time elapsedTime);
+    int getColumnId(int msPerFrame, int numOfFrames);
 
     sf::Sprite sprite;
     Type type = Type::IDLE;
     Direction direction = Direction::RIGHT;
 
-    sf::Time time;
+    sf::Time elapsedTime;
+    sf::Clock clock;
 };
 
 struct Spritesheet

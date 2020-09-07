@@ -16,35 +16,6 @@
         <Window name="Test level" w="1280" h="720" vSynch="false" icon="icon" />
     </GameWindow>
 	
-	<!-- ОПИСАНИЕ ДЕЙСТВИЙ -->
-	<!-- Действия игрока -->
-	<Actions>
-		<MoveLeft> 
-			<Move entity="player" x="-1" y="0"/>
-			<Sound name="step" />
-		</MoveLeft>
-		<MoveRight> 
-			<Move entity="player" x="1" y="0"/>
-			<Sound name="step" />
-		</MoveRight>
-		<MoveUp> 
-			<Move entity="player" x="0" y="-1"/>
-			<Sound name="step" />
-		</MoveUp>
-		<MoveDown> 
-			<Move entity="player" x="0" y="1"/>
-			<Sound name="step" />
-		</MoveDown>
-	</Actions>
-
-	<!-- УРПАВЛЕНИЕ: Привязка клавиш к действиям -->
-	<Controls>
-		<A action="MoveLeft"/>
-		<D action="MoveRight"/>
-		<W action="MoveUp"/>
-		<S action="MoveDown"/>
-	</Controls>
-	
 	<!-- Игровые уровни -->
 	<Levels directory="content\levels" >
 		<StartLevel name="test_level"/>

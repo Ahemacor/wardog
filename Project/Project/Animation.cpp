@@ -25,43 +25,59 @@ Animation::Animation(const Spritesheet& spriteSheetDescr)
     sprite.setTexture(TEXTURE(settings.texture));
 }
 
-sf::Sprite Animation::getSprite(Type type, Direction direction, sf::Time elapsedTime)
+void Animation::update(b2Vec2 velocity)
 {
+    const float bias = 0.1f;
+    const float velVectLen = velocity.Length();
+
+    if (velVectLen > bias)
+    {
+        setType(Animation::Type::WALK);
+        float absX = std::fabsf(velocity.x);
+        float absY = std::fabsf(velocity.y);
+        if (absX >= absY)
+        {
+            if (velocity.x <= -bias)     setDirection(Animation::Direction::LEFT);
+            else if (velocity.x >= bias) setDirection(Animation::Direction::RIGHT);
+        }
+        else
+        {
+            if (velocity.y <= -bias)     setDirection(Animation::Direction::UP);
+            else if (velocity.y >= bias) setDirection(Animation::Direction::DOWN);
+        }
+        const float scaleFactor = std::fminf(velVectLen, 1.0f);
+        elapsedTime += clock.restart() * scaleFactor;
+    }
+    else
+    {
+        setType(Animation::Type::IDLE);
+        elapsedTime += clock.restart();
+    }
+
     const char* directionName = DirectionNames[static_cast<int>(direction)];
     const char* animationName = AnimationNames[static_cast<int>(type)];
 
-    int row_id = 0;
-    int column_id = 0;
-
     auto& animationInfo = settings.animations[animationName];
-    row_id = animationInfo.row_index[directionName];
-    column_id = getColumnId(animationInfo.ms_per_frame, animationInfo.num_frames, elapsedTime);
+    const int row_id = animationInfo.row_index[directionName];
+    const int column_id = getColumnId(animationInfo.ms_per_frame, animationInfo.num_frames);
 
     sf::IntRect newTectureRect(settings.x_offset + (column_id * settings.width),
         settings.y_offset + (row_id * settings.height),
         settings.width, settings.height);
 
     sprite.setTextureRect(newTectureRect);
-
-    return sprite;
 }
 
-sf::Sprite Animation::getSprite(sf::Time elapsedTime)
+void Animation::draw(sf::RenderTarget& target, sf::RenderStates states) const
 {
-    return getSprite(type, direction, elapsedTime);
+    target.draw(sprite, states);
 }
 
-void Animation::setPosition(float xpos, float ypos)
+int Animation::getColumnId(int msPerFrame, int numOfFrames)
 {
-    sprite.setPosition(xpos, ypos);
-}
-
-int Animation::getColumnId(int msPerFrame, int numOfFrames, sf::Time elapsedTime)
-{
-    time += elapsedTime;
     sf::Time fullAnimDuration = sf::milliseconds(msPerFrame * numOfFrames);
-    if (time > fullAnimDuration) time %= fullAnimDuration;
-    return time.asMilliseconds() / msPerFrame;
+    if (elapsedTime > fullAnimDuration) elapsedTime %= fullAnimDuration;
+    return elapsedTime.asMilliseconds() / msPerFrame;
 }
 
 std::string Animation::getName() 

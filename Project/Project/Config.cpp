@@ -1,10 +1,6 @@
 #include "Config.h"
 #include "CommonDefinitions.h"
 
-ControlActions g_controls;
-
-std::unordered_map<std::string, ActionList> g_actions;
-
 std::unordered_map<std::string, Spritesheet> spriteSheetDescriptions;
 
 const char* KeyNames[] =
@@ -24,7 +20,7 @@ const char* KeyNames[] =
 
 Action BuildSoundAction(const std::string& soundName)
 {
-    return [soundName](bool pressed)
+    return [soundName](Entity_& entity, bool pressed)
     {
         if (pressed)
         {
@@ -32,26 +28,29 @@ Action BuildSoundAction(const std::string& soundName)
         }
         else
         {
-            STOP_SOUND(soundName);
+            //STOP_SOUND(soundName);
         }
     };
 }
 
-Action BuildMoveAction(const std::string& entityName, const b2Vec2& vector)
+Action BuildMoveAction(const b2Vec2& vector)
 {
-    return [entityName, vector](bool pressed)
+    return [vector](Entity_& entity, bool pressed)
     {
-        Entity_& entity = GAME_INSTANCE.scene.getEntity(entityName);
-        auto* pComponent = entity.getComponent(Entity_::Component::Type::BODY);
+        Component* pComponent = entity.getComponent(Component::Type::BODY);
         b2Body& body = *std::get<b2Body*>(pComponent->var);
 
-        if (pressed)
+        const float maxVel = 10.0f;
+        const float forceScale = 20;
+
+        if (pressed && body.GetLinearVelocity().Length() < maxVel)
         {
-            body.SetLinearVelocity(vector);
+            const b2Vec2 scaledForce = { vector.x * forceScale, vector.y * forceScale };
+            body.ApplyForceToCenter(scaledForce, true);
         }
         else
         {
-            body.SetLinearVelocity({ 0, 0 });
+            //body.SetLinearVelocity({ 0, 0 });
         }
     };
 }
@@ -191,8 +190,21 @@ void Config::loadAnimationSettings(TiXmlHandle rootHandle)
     }
 }
 
-void Config::initActions()
+ControlActions Config::loadActions(Scene& scene, Entity_& entity, const std::string& controllerName)
 {
+    std::map<std::string, ActionList> actions;
+    ControlActions controller;
+    LOG_INFO(std::string("controller: ") + controllerName);
+
+    const std::string controllerPath = std::string("content\\config") + "\\" + controllerName + ".xml";
+    TiXmlDocument controllerDoc(controllerPath.c_str());
+    TiXmlHandle hControllerDoc(&controllerDoc);
+
+    controllerDoc.LoadFile();
+    TiXmlElement* pControllerElem = hControllerDoc.FirstChildElement().Element();
+    const std::string controllerRootName = pControllerElem->Value();
+    TiXmlHandle hControllerRoot = TiXmlHandle(pControllerElem);
+
     static constexpr const char* ACTIONS = "Actions";
     static constexpr const char* SOUND = "Sound";
     static constexpr const char* MOVE = "Move";
@@ -202,7 +214,7 @@ void Config::initActions()
     static constexpr const char* NAME = "name";
     static constexpr const char* ENTITY = "entity";
 
-    TiXmlElement* actionsElem = hRoot.FirstChild(ACTIONS).Element();
+    TiXmlElement* actionsElem = hControllerRoot.FirstChild(ACTIONS).Element();
     for (actionsElem; actionsElem != nullptr; actionsElem = actionsElem->NextSiblingElement())
     {
         const std::string actionsElemName = actionsElem->Value();
@@ -219,21 +231,21 @@ void Config::initActions()
                 const std::string actionName = actionElem->Value();
                 if (actionName == SOUND)
                 {
-                    g_actions[actionBundleElemName].push_back(BuildSoundAction(actionElem->Attribute(NAME)));
+                    actions[actionBundleElemName].push_back(BuildSoundAction(actionElem->Attribute(NAME)));
                 }
                 else if (actionName == MOVE)
                 {
                     b2Vec2 vector;
                     actionElem->QueryFloatAttribute("x", &vector.x);
                     actionElem->QueryFloatAttribute("y", &vector.y);
-                    g_actions[actionBundleElemName].push_back(BuildMoveAction(actionElem->Attribute(ENTITY), vector));
+                    actions[actionBundleElemName].push_back(BuildMoveAction(vector));
                 }
 
             }
         }
     }
 
-    TiXmlElement* controlsElem = hRoot.FirstChild(CONTROLS).Element();
+    TiXmlElement* controlsElem = hControllerRoot.FirstChild(CONTROLS).Element();
     for (controlsElem; controlsElem != nullptr; controlsElem = controlsElem->NextSiblingElement())
     {
         const std::string controlsElemName = controlsElem->Value();
@@ -257,7 +269,7 @@ void Config::initActions()
             {
                 if (controlName == keyName)
                 {
-                    g_controls[static_cast<sf::Keyboard::Key>(keyIndex)] = g_actions[controlActionName];
+                    controller[static_cast<sf::Keyboard::Key>(keyIndex)] = actions[controlActionName];
                 }
                 ++keyIndex;
             }
@@ -266,9 +278,10 @@ void Config::initActions()
 
         SHOW_TEXT(controlsInfoText);
     }
+    return controller;
 }
 
-Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
+void Config::loadComponent(TiXmlElement* componentElem, Scene& scene, Entity_& entity)
 {
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_BODY = "Body";
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_SHAPE = "Shape";
@@ -293,13 +306,13 @@ Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
     const char* pTexture = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TEXTURE);
     std::string textureName = (pTexture != nullptr) ? pTexture : "";
 
-    Entity_::Component component;
-    component.transformation.setPosition(x, y);
+    Component component;
+    component.setPosition(x, y);
 
     const std::string componentName = componentElem->Value();
     if (componentName == XML_TAG_ENTITY_COMPONENT_BODY)
     {
-        component.type = Entity_::Component::Type::BODY;
+        component.type = Component::Type::BODY;
         const std::string componentTypeString = componentElem->Attribute(XML_TAG_ENTITY_COMPONENT_TYPE);
         const b2BodyType bodyType = (componentTypeString == XML_TAG_ENTITY_COMPONENT_TYPE_DYNAMIC) ? b2_dynamicBody : b2_staticBody;
 
@@ -308,7 +321,7 @@ Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
         bodyDef.position.Set(pixelToMeter(x), pixelToMeter(y));
         bodyDef.angularDamping = 15.0f;
         bodyDef.linearDamping = 10.0f;
-        b2Body* body = GAME_INSTANCE.scene.world.CreateBody(&bodyDef);
+        b2Body* body = scene.world.CreateBody(&bodyDef);
 
         b2PolygonShape boxShape;
         boxShape.SetAsBox(pixelToMeter(width) / 2, pixelToMeter(height) / 2);
@@ -323,7 +336,7 @@ Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
     }
     else if (componentName == XML_TAG_ENTITY_COMPONENT_SHAPE)
     {
-        component.type = Entity_::Component::Type::SHAPE;
+        component.type = Component::Type::SHAPE;
         component.var = sf::RectangleShape({ width, height });
         sf::RectangleShape& rect = std::get<sf::RectangleShape>(component.var);
         rect.setOrigin(width / 2, height / 2);
@@ -334,7 +347,7 @@ Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
     }
     else if (componentName == XML_TAG_ENTITY_COMPONENT_SPRITE)
     {
-        component.type = Entity_::Component::Type::SPRITE;
+        component.type = Component::Type::SPRITE;
         const sf::IntRect intRect({0, 0}, { (int)width, (int)height });
         component.var = sf::Sprite(TEXTURE(textureName));
         sf::Sprite& sprite = std::get<sf::Sprite>(component.var);
@@ -344,7 +357,7 @@ Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
     }
     else if (componentName == XML_TAG_ENTITY_COMPONENT_ANIMAION)
     {
-        component.type = Entity_::Component::Type::ANIMATION;
+        component.type = Component::Type::ANIMATION;
         const char* pAnimationName = componentElem->Attribute("name");
         if (pAnimationName != nullptr)
         {
@@ -353,14 +366,23 @@ Entity_::Component Config::loadComponent(TiXmlElement* componentElem)
     }
     else if (componentName == XML_TAG_ENTITY_COMPONENT_CAMERA)
     {
-        component.type = Entity_::Component::Type::CAMERA;
+        component.type = Component::Type::CAMERA;
         component.var = sf::View({ x, y }, { width, height });
     }
+    else if (componentName == "Controller")
+    {
+        component.type = Component::Type::CONTROLLER;
+        const char* pControllerName = componentElem->Attribute("name");
+        if (pControllerName != nullptr)
+        {
+            component.var = loadActions(scene, entity, pControllerName);
+        }
+    }
 
-    return component;
+    entity.components.push_back(component);
 }
 
-Entity_ Config::loadEntity(TiXmlElement* entityElem)
+void Config::loadEntity(TiXmlElement* entityElem, Scene& scene)
 {
     static constexpr const char* XML_TAG_ENTITY_NAME = "name";
 
@@ -372,14 +394,13 @@ Entity_ Config::loadEntity(TiXmlElement* entityElem)
     TiXmlElement* componentElem = entityElem->FirstChild()->ToElement();
     for (componentElem; componentElem != nullptr; componentElem = componentElem->NextSiblingElement())
     {
-        Entity_::Component component = loadComponent(componentElem);
-        entity.components.push_back(component);
+        loadComponent(componentElem, scene, entity);
     }
 
-    return entity;
+    scene.sceneGraph.push_back(entity);
 }
 
-void Config::loadEntities(TiXmlHandle rootHandle)
+void Config::loadEntities(TiXmlHandle rootHandle, Scene& scene)
 {
     auto sceneHandle = rootHandle.FirstChild("Scene");
     TiXmlElement* entityElem = sceneHandle.FirstChild("Entity").Element();
@@ -389,8 +410,7 @@ void Config::loadEntities(TiXmlHandle rootHandle)
         const std::string elemName = entityElem->Value();
         if (elemName == "Entity")
         {
-            Entity_ entity = loadEntity(entityElem);
-            GAME_INSTANCE.scene.sceneGraph.push_back(entity);
+            loadEntity(entityElem, scene);
         }
     }
 }
@@ -425,7 +445,7 @@ std::string Config::getStartLevelName()
     return startLevel;
 }
 
-void Config::loadLevel(const std::string& levelName)
+void Config::loadLevel(const std::string& levelName, Scene& scene)
 {
     LOG_INFO(std::string("level: ") + levelName);
     readLevelList();
@@ -440,9 +460,11 @@ void Config::loadLevel(const std::string& levelName)
     LoadResoures(hLevelRoot);
     loadAnimationSettings(hLevelRoot);
     loadPlaylist(hLevelRoot);
-    loadEntities(hLevelRoot);
+    loadEntities(hLevelRoot, scene);
 
     currentLevel = levelName;
+   
+    scene.playlist = musicPlaylist;
 }
 
 void Config::loadPlaylist(TiXmlHandle rootHandle)

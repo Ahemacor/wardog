@@ -44,7 +44,6 @@ static constexpr float radianToDegree(float radians) { return radians * 180 * M_
 // Config
 #define MAIN_CONFIG_FILE "content\\config\\settings.xml"
 #define WINDOW_CONFIG Config::getInstance().getWindowSettings()
-#define BUILD_ACTIONS_FROM_CONFIG() (Config::getInstance().initActions())
 #define LOAD_ENTITIES() Config::getInstance().loadEntities();
 #define CONFIG (Config::getInstance())
 

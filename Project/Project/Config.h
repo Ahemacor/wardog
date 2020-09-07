@@ -11,6 +11,7 @@
 #include <set>
 #include <SFML/Window.hpp>
 
+struct Scene;
 class Config
 {
 public:
@@ -34,12 +35,12 @@ public:
 
     void loadAnimationSettings(TiXmlHandle rootHandle);
 
-    void initActions();
+    ControlActions loadActions(Scene& scene, Entity_& entity, const std::string& controllerName);
 
     std::vector<std::string> readLevelList();
     std::string getStartLevelName();
 
-    void loadLevel(const std::string& levelName);
+    void loadLevel(const std::string& levelName, Scene& scene);
 
     std::vector<std::string> musicPlaylist;
 
@@ -47,9 +48,9 @@ public:
 
 private:
     Config(const std::string& filepath);
-    void loadEntities(TiXmlHandle rootHandle);
-    Entity_ loadEntity(TiXmlElement* entityElem);
-    Entity_::Component loadComponent(TiXmlElement* componentElem);
+    void loadEntities(TiXmlHandle rootHandle, Scene& scene);
+    void loadEntity(TiXmlElement* entityElem, Scene& scene);
+    void loadComponent(TiXmlElement* componentElem, Scene& scene, Entity_& entity);
 
     void loadPlaylist(TiXmlHandle rootHandle);
 
@@ -62,10 +63,3 @@ private:
     std::string startLevel;
 
 };
-
-using Action = std::function<void(bool)>;
-using ActionList = std::vector<Action>;
-using KeySet = std::set<sf::Keyboard::Key>;
-
-using ControlActions = std::map<sf::Keyboard::Key, ActionList>;
-extern ControlActions g_controls;
