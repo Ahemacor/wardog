@@ -23,6 +23,10 @@
 		<Resource name="music4" ext="wav"/>
 	</Resources>
 	
+	<Resources type="Font" directory="content\fonts">
+		<Resource name="pixel_font" ext="ttf"/>
+	</Resources>
+	
     <!-- ОПИСАНИЕ СПРАЙТОВЫХ АНИМАЦИЙ -->
 	<!-- Спрайтлист с анимациями игрока -->
 	<Spritesheet name="player animation" texture="spritelist" x_offset="0" y_offset="0" width="32" height= "32" scale="5">
@@ -91,4 +95,20 @@
 			<Shape width="100" height="100" x="0" y="0" texture="box" />
 		</Entity>
 	</Scene>
+	
+	<UI>
+	    <Menu name="Game Settings" font="menu_font" x="50" y="200" charSize="50" active="false" >
+			<Option name="Main menu" action="LEVEL" args="menu"/>
+			<Option name="Options" action="MENU" args="Options" />
+			<Option name="Exit" action="EXIT" />
+			<Option name="Continue" action="BACK" />
+		</Menu>
+		
+		<Menu name="Options" font="menu_font" x="50" y="200" charSize="50" active="false" >
+			<Option name="TEST 1" action="" args="" />
+			<Option name="TEST 2" action="" args="" />
+			<Option name="Back" action="BACK" />
+		</Menu>
+	
+	</UI>
 </Level>

@@ -20,7 +20,7 @@ const char* KeyNames[] =
 
 Action BuildSoundAction(const std::string& soundName)
 {
-    return [soundName](Entity_& entity, bool pressed)
+    return [soundName](Entity& entity, bool pressed)
     {
         if (pressed)
         {
@@ -35,7 +35,7 @@ Action BuildSoundAction(const std::string& soundName)
 
 Action BuildMoveAction(const b2Vec2& vector)
 {
-    return [vector](Entity_& entity, bool pressed)
+    return [vector](Entity& entity, bool pressed)
     {
         Component* pComponent = entity.getComponent(Component::Type::BODY);
         b2Body& body = *std::get<b2Body*>(pComponent->var);
@@ -190,7 +190,7 @@ void Config::loadAnimationSettings(TiXmlHandle rootHandle)
     }
 }
 
-ControlActions Config::loadActions(Scene& scene, Entity_& entity, const std::string& controllerName)
+ControlActions Config::loadActions(Scene& scene, Entity& entity, const std::string& controllerName)
 {
     std::map<std::string, ActionList> actions;
     ControlActions controller;
@@ -281,7 +281,7 @@ ControlActions Config::loadActions(Scene& scene, Entity_& entity, const std::str
     return controller;
 }
 
-void Config::loadComponent(TiXmlElement* componentElem, Scene& scene, Entity_& entity)
+void Config::loadComponent(TiXmlElement* componentElem, Scene& scene, Entity& entity)
 {
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_BODY = "Body";
     static constexpr const char* XML_TAG_ENTITY_COMPONENT_SHAPE = "Shape";
@@ -340,6 +340,7 @@ void Config::loadComponent(TiXmlElement* componentElem, Scene& scene, Entity_& e
         component.var = sf::RectangleShape({ width, height });
         sf::RectangleShape& rect = std::get<sf::RectangleShape>(component.var);
         rect.setOrigin(width / 2, height / 2);
+        rect.setPosition(x, y);
         if (!textureName.empty())
         {
             rect.setTexture(&TEXTURE(textureName));
@@ -386,7 +387,7 @@ void Config::loadEntity(TiXmlElement* entityElem, Scene& scene)
 {
     static constexpr const char* XML_TAG_ENTITY_NAME = "name";
 
-    Entity_ entity;
+    Entity entity;
     entity.name = entityElem->Attribute(XML_TAG_ENTITY_NAME);
 
     LOG_INFO(std::string("entity: ") + entity.name);
@@ -404,13 +405,79 @@ void Config::loadEntities(TiXmlHandle rootHandle, Scene& scene)
 {
     auto sceneHandle = rootHandle.FirstChild("Scene");
     TiXmlElement* entityElem = sceneHandle.FirstChild("Entity").Element();
-    const std::string entElemName = entityElem->Value();
     for (entityElem; entityElem != nullptr; entityElem = entityElem->NextSiblingElement())
     {
         const std::string elemName = entityElem->Value();
         if (elemName == "Entity")
         {
             loadEntity(entityElem, scene);
+        }
+    }
+}
+
+void Config::loadMenu(TiXmlHandle menuHandle, Scene& scene)
+{
+    Menu menu;
+    TiXmlElement* menuElem = menuHandle.Element();
+    menu.name = menuElem->Attribute("name");
+    menu.fontName = menuElem->Attribute("font");
+
+    float x, y;
+    menuElem->QueryFloatAttribute("x", &x);
+    menuElem->QueryFloatAttribute("y", &y);
+    menu.setPosition(x, y);
+
+    menuElem->QueryIntAttribute("charSize", &menu.charSize);
+
+    TiXmlElement* optionElem = menuHandle.FirstChild("Option").Element();
+    for (optionElem; optionElem != nullptr; optionElem = optionElem->NextSiblingElement())
+    {
+        const std::string optionName = optionElem->Value();
+        if (optionName == "Option")
+        {
+            Menu::Option option;
+            option.type = Menu::Option::Type::TEXT_OPTION;
+            option.name = optionElem->Attribute("name");
+            option.action = optionElem->Attribute("action");
+
+            const char* args_str = optionElem->Attribute("args");
+            if (args_str != nullptr)
+            {
+                std::string args_string = args_str;
+                auto begin = args_string.cbegin();
+                auto end = args_string.cend();
+                while (begin != end)
+                {
+                    auto newEnd = std::find(begin, end, ' ');
+                    option.args.push_back(std::string(begin, newEnd));
+                    begin = newEnd;
+                }
+            }
+
+            option.text.setFont(FONT(menu.fontName));
+            menu.options.push_back(option);
+        }
+    }
+    bool isMenuActive = false;
+    menuElem->QueryBoolAttribute("active", &isMenuActive);
+
+    scene.allMenu[menu.name] = menu;
+    if (isMenuActive)
+    {
+        scene.menuStack.push(menu);
+    }
+}
+
+void Config::loadUI(TiXmlHandle rootHandle, Scene& scene)
+{
+    auto sceneHandle = rootHandle.FirstChild("UI");
+    TiXmlElement* menuElem = sceneHandle.FirstChild("Menu").Element();
+    for (menuElem; menuElem != nullptr; menuElem = menuElem->NextSiblingElement())
+    {
+        const std::string menuName = menuElem->Value();
+        if (menuName == "Menu")
+        {
+            loadMenu(menuElem, scene);
         }
     }
 }
@@ -461,6 +528,7 @@ void Config::loadLevel(const std::string& levelName, Scene& scene)
     loadAnimationSettings(hLevelRoot);
     loadPlaylist(hLevelRoot);
     loadEntities(hLevelRoot, scene);
+    loadUI(hLevelRoot, scene);
 
     currentLevel = levelName;
    

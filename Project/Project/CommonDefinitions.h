@@ -23,7 +23,7 @@ static constexpr float radianToDegree(float radians) { return radians * 180 * M_
 #define MUSIC(name) (g_resources[(name)].get<Resource::Type::MUSIC>())
 #define FONT(name) (g_resources[(name)].get<Resource::Type::FONT>())
 
-#define LOAD_RESOURCE(TYPE, NAME, PATH) (g_resources[(NAME)].load((TYPE), (NAME), (PATH)))
+#define LOAD_RESOURCE(TYPE, NAME, PATH) ( (g_resources.count(resourceName) == 0) ? g_resources[(NAME)].load((TYPE), (NAME), (PATH)) : false)
 
 // AudioSystem
 #define PLAY_SOUND(NAME) (AudioSystem::getInstance().playSound((NAME)))
@@ -32,12 +32,17 @@ static constexpr float radianToDegree(float radians) { return radians * 180 * M_
 
 // UiManager
 #define UI_INSTANCE UiManager::getInstance()
+#ifdef DEBUG
 #define LOG_INFO(logText) (UiManager::getInstance().log((logText), UiManager::LogType::INFO))
+#else
+#define LOG_INFO(logText)
+#endif
+
 #define LOG_ERROR(logText) (UiManager::getInstance().log((logText), UiManager::LogType::ERROR))
 
 #define SHOW_TEXT(TEXT) (UiManager::getInstance().AddStaticText((TEXT)))
 
-#define UPDATE_UI() (UiManager::getInstance().updateLogs())
+#define UPDATE_UI(TIME) (UiManager::getInstance().update((TIME)))
 
 #define COUNT_RENDER(TIME) (UiManager::getInstance().calculateFps((TIME)))
 

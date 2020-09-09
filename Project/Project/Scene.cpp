@@ -5,7 +5,7 @@
 #include <chrono>
 #include <random>
 
-Entity_* Scene::getEntity(const std::string& entityName)
+Entity* Scene::getEntity(const std::string& entityName)
 {
     auto findIt = std::find_if(sceneGraph.begin(),
                                sceneGraph.end(),
@@ -15,6 +15,8 @@ Entity_* Scene::getEntity(const std::string& entityName)
 
 void Scene::update(const sf::Time& elapsedTime)
 {
+    view = GAME_INSTANCE.window.getDefaultView();
+
     const int32 velocityIterations = 50;
     const int32 positionIterations = 50;
     world.Step(elapsedTime.asSeconds(), velocityIterations, positionIterations);
@@ -51,8 +53,9 @@ void Scene::update(const sf::Time& elapsedTime)
 
 void Scene::draw(sf::RenderTarget& target, sf::RenderStates states) const
 {
-    sf::RenderStates renderState;
+    sf::RenderStates renderState = states;
     renderState.transform *= getTransform();
+    renderState.transform *= cameraTransform.getInverse();
     sf::View prevView = target.getView();
     sf::View sceneView = view;
     sceneView.setViewport(viewport);
@@ -64,4 +67,37 @@ void Scene::draw(sf::RenderTarget& target, sf::RenderStates states) const
     }
 
     target.setView(prevView);
+}
+
+void Scene::setCamera(const sf::Transform& transform, const sf::View& view)
+{
+    cameraTransform = transform;
+    this->view = view;
+}
+
+void Scene::clear()
+{
+    sceneGraph.clear();
+
+    view = GAME_INSTANCE.window.getDefaultView();
+    viewport = { 0.0f, 0.0f, 1.0f, 1.0f };
+    cameraTransform = sf::Transform::Identity;
+
+    playlist.clear();
+    AudioSystem::getInstance().stopMusic();
+
+    b2Body* body = world.GetBodyList();
+    while (body != nullptr)
+    {
+        b2Body* nextBody = body->GetNext();
+        world.DestroyBody(body);
+        body = nextBody;
+    }
+
+
+    while (!menuStack.empty()) menuStack.pop();
+
+    allMenu.clear();
+
+    //g_resources.clear();
 }

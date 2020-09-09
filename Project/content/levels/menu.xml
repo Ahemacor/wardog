@@ -1,0 +1,43 @@
+<?xml version="1.0" ?>
+<Level>
+	<Resources type="Music" directory="content\audio">
+	    <Resource name="ambient" ext="wav"/>
+	</Resources>
+	
+	<Resources type="Font" directory="content\fonts">
+		<Resource name="menu_font" ext="otf"/>
+	</Resources>
+	
+	<Resources type="Sound" directory="content\audio">
+		<Resource name="select" ext="wav"/>
+		<Resource name="activate" ext="wav"/>
+	</Resources>
+	
+	<Resources type="Texture" directory="content\textures">
+		<Resource name="menu_background" ext="jpg"/>
+	</Resources>
+	
+	<Playlist>
+		<Music name="ambient"/>
+	</Playlist>
+	
+	<Scene>
+		<Entity name="ground"> 
+			<Shape width="1280" height="720" x="640" y="360" texture="menu_background" />
+		</Entity>
+	</Scene>	
+	
+	<UI>
+		<Menu name="Main menu" font="menu_font" x="50" y="200" charSize="50" active="true" >
+			<Option name="New game" action="LEVEL" args="test_level" />
+			<Option name="Settings" action="MENU" args="Settings" />
+			<Option name="Exit" action="EXIT" />
+		</Menu>
+		
+	    <Menu name="Settings" font="menu_font" x="50" y="200" charSize="50" active="false" >
+			<Option name="text 1" action="" args="" />
+			<Option name="text 1" action="" args="" />
+			<Option name="Back" action="BACK" />
+		</Menu>
+	</UI>
+</Level>

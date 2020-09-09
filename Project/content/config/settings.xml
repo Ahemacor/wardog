@@ -18,6 +18,6 @@
 	
 	<!-- Игровые уровни -->
 	<Levels directory="content\levels" >
-		<StartLevel name="test_level"/>
+		<StartLevel name="menu"/>
 	</Levels>
 </Settings>

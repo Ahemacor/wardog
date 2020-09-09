@@ -4,6 +4,13 @@
 #include "Config.h"
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <stack>
+
+struct Command
+{
+    enum class Type { LOAD, EXIT, MENU, BACK } type;
+    std::vector<std::string> args;
+};
 
 class Game
 {
@@ -23,12 +30,15 @@ public:
 
     void blockingRun();
 
+    void exec(const std::string& action, const std::vector<std::string>& args);
+
     Scene scene;
 
-private:
-    Game();
+    std::queue<Command> commands;
 
     sf::RenderWindow window;
+private:
+    Game();
 
     sf::Clock clock;
 };

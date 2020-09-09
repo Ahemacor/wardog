@@ -10,8 +10,8 @@
 #include <unordered_map>
 #include <functional>
 
-struct Entity_;
-using Action = std::function<void(Entity_&, bool)>;
+struct Entity;
+using Action = std::function<void(Entity&, bool)>;
 using ActionList = std::vector<Action>;
 using ControlActions = std::map<sf::Keyboard::Key, ActionList>;
 
@@ -32,10 +32,10 @@ struct Component : public sf::Transformable
     Component& operator=(const Component&) = default;
 
     Type type;
-    std::variant<b2Body*, sf::RectangleShape, sf::Sprite, Animation, sf::View, ControlActions> var;
+    std::variant<b2Body*, sf::RectangleShape, sf::Sprite, Animation, sf::View, ControlActions, sf::Text> var;
 };
 
-struct Entity_ : public sf::Drawable, public sf::Transformable
+struct Entity : public sf::Drawable, public sf::Transformable
 {
     std::string name;
     b2Vec2 velocity;

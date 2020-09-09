@@ -1,7 +1,7 @@
 #include "Entity.h"
 #include "CommonDefinitions.h"
 
-Component* Entity_::getComponent(Component::Type componentType)
+Component* Entity::getComponent(Component::Type componentType)
 {
     for (auto& component : components)
     {
@@ -13,7 +13,7 @@ Component* Entity_::getComponent(Component::Type componentType)
     return nullptr;
 }
 
-void Entity_::update(const sf::Time& elapsedTime)
+void Entity::update(const sf::Time& elapsedTime)
 {
     for (auto& component : components)
     {
@@ -49,8 +49,7 @@ void Entity_::update(const sf::Time& elapsedTime)
         break;
         case Component::Type::CAMERA:
         {
-            GAME_INSTANCE.scene.cameraTransform = getTransform();
-            GAME_INSTANCE.scene.view = std::get<sf::View>(component.var);
+            GAME_INSTANCE.scene.setCamera(getTransform(), std::get<sf::View>(component.var));
         }
         break;
         case Component::Type::CONTROLLER:
@@ -67,12 +66,11 @@ void Entity_::update(const sf::Time& elapsedTime)
     }
 }
 
-void Entity_::draw(sf::RenderTarget& target, sf::RenderStates states) const
+void Entity::draw(sf::RenderTarget& target, sf::RenderStates states) const
 {
     for (auto& component : components)
     {
-        sf::RenderStates renderState;
-        renderState.transform *= GAME_INSTANCE.scene.cameraTransform.getInverse();
+        sf::RenderStates renderState = states;
         renderState.transform *= getTransform();
 
         switch (component.type)

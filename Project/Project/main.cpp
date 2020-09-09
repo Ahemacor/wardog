@@ -10,5 +10,7 @@ int main()
 
     GAME_START();
 
+    g_resources.clear();
+
     return 0;
 }

@@ -35,7 +35,7 @@ public:
 
     void loadAnimationSettings(TiXmlHandle rootHandle);
 
-    ControlActions loadActions(Scene& scene, Entity_& entity, const std::string& controllerName);
+    ControlActions loadActions(Scene& scene, Entity& entity, const std::string& controllerName);
 
     std::vector<std::string> readLevelList();
     std::string getStartLevelName();
@@ -50,7 +50,10 @@ private:
     Config(const std::string& filepath);
     void loadEntities(TiXmlHandle rootHandle, Scene& scene);
     void loadEntity(TiXmlElement* entityElem, Scene& scene);
-    void loadComponent(TiXmlElement* componentElem, Scene& scene, Entity_& entity);
+    void loadComponent(TiXmlElement* componentElem, Scene& scene, Entity& entity);
+
+    void loadMenu(TiXmlHandle menuHandle, Scene& scene);
+    void loadUI(TiXmlHandle rootHandle, Scene& scene);
 
     void loadPlaylist(TiXmlHandle rootHandle);
 

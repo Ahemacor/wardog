@@ -69,6 +69,7 @@ void AudioSystem::stopMusic()
     {
         sf::Music& music = MUSIC(currentMusicName);
         music.stop();
+        currentMusicName.clear();
     }
 }
 
